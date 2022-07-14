@@ -1,0 +1,6 @@
+.vscode/
+.idea/
+target/
+src/tr.rs
+
+Cargo.lock

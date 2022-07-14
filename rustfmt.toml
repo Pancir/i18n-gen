@@ -1,0 +1,6 @@
+# https://rust-lang.github.io/rustfmt/
+
+tab_spaces=3
+max_width=100
+use_field_init_shorthand=true
+use_small_heuristics="Max"
