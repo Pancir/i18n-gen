@@ -4,5 +4,5 @@ en-EN:
   count: number ${value:u32}!
   group:
     hello: hello world from group!
-    greet: hello ${name:&str} from group!
+    greet: hello ${name} from group!
     count: number ${val1:u32} and ${val2:u32} from group!

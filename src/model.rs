@@ -67,7 +67,11 @@ impl ItemValue {
                      name.push(ch);
                   }
                }
-               args.push(ItemArg { typ, name })
+               let mut item_arg = ItemArg { typ, name };
+               if item_arg.typ.is_empty() {
+                  item_arg.typ.push_str("&str");
+               }
+               args.push(item_arg)
             }
          }
       }

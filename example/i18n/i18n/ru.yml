@@ -4,5 +4,5 @@ ru-RU:
   count: число ${value:u32}!
   group:
     hello: привет мир из группы!
-    greet: привет ${name:&str} из группы!
+    greet: привет ${name} из группы!
     count: число ${val1:u32} и ${val2:u32} из группы!
