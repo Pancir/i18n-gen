@@ -42,7 +42,6 @@ fn main() {
    println!("  {}", tr::group::hello());
    println!("  {}", tr::group::greet("Man"));
    println!("  {}", tr::group::count(42, 52));
-   println!("===============================");
 
    unsafe { tr::service::set_ru_ru() };
    println!("===============================");
@@ -56,7 +55,14 @@ fn main() {
    println!("  {}", tr::group::hello());
    println!("  {}", tr::group::greet("Man"));
    println!("  {}", tr::group::count(42, 52));
+
    println!("===============================");
+   println!("Direct acces to en_en");
+   println!("  {}", tr::en_en::count(42));
+
+   println!("===============================");
+   println!("Direct acces to ru_ru");
+   println!("  {}", tr::ru_ru::count(42));
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -86,6 +92,9 @@ mod tests {
       assert_eq!("привет мир из группы!", tr::group::hello().cow().as_ref());
       assert_eq!("привет Тэст из группы!", tr::group::greet("Тэст").to_string());
       assert_eq!("число 42 и 52 из группы!", tr::group::count(42, 52).cow().as_ref());
+
+      assert_eq!("hello world!", tr::en_en::hello().str());
+      assert_eq!("привет мир!", tr::ru_ru::hello().str());
    }
 }
 
