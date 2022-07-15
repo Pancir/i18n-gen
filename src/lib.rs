@@ -25,6 +25,8 @@
 **  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#![doc = include_str!("../README.md")]
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #[cfg(test)]
