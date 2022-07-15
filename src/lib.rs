@@ -3,8 +3,8 @@
 #[cfg(test)]
 pub mod test_utils;
 
+mod codegen;
 mod gen;
-mod gen_code;
 mod model;
 
 pub use gen::*;

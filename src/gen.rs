@@ -1,4 +1,4 @@
-use crate::gen_code::generate_code;
+use crate::codegen::generate_code;
 use crate::model::Local;
 use anyhow::bail;
 use std::path::Path;
