@@ -71,11 +71,19 @@ fn write_service(r: &mut impl std::io::Write, item: &Item, locals: &[Local]) -> 
    writeln!(r, "   pub trait StaticStrAccess {{")?;
    writeln!(r, "      fn str(&self) -> &'static str;")?;
    writeln!(r, "   }}\n\n")?;
+
+   writeln!(r, "   pub trait CowAccess {{")?;
+   writeln!(r, "      fn cow(&self) -> std::borrow::Cow<'static, str>;")?;
+   writeln!(r, "   }}\n\n")?;
    //--------------------------
    writeln!(r, "   pub struct StaticStrDisplay(pub &'static str);\n")?;
 
    writeln!(r, "   impl StaticStrAccess for StaticStrDisplay {{")?;
    writeln!(r, "      fn str(&self) -> &'static str {{self.0}}")?;
+   writeln!(r, "   }}\n")?;
+
+   writeln!(r, "   impl CowAccess for StaticStrDisplay {{")?;
+   writeln!(r, "      fn cow(&self) -> std::borrow::Cow<'static, str> {{std::borrow::Cow::Borrowed(self.0)}}")?;
    writeln!(r, "   }}\n")?;
 
    writeln!(r, "   impl std::fmt::Display for StaticStrDisplay {{")?;
@@ -181,6 +189,7 @@ fn write_init_local_members(
 
 fn write_service_group(r: &mut impl std::io::Write, item: &(&String, &Item)) -> anyhow::Result<()> {
    writeln!(r, "   pub mod {} {{", create_mod_name(&item.0))?;
+   writeln!(r, "      use super::*;\n")?;
 
    for v in &item.1.values {
       write_service_structs(r, &v, "      ")?;
@@ -220,6 +229,12 @@ fn write_service_structs(
          write!(r, ", {}", arg.typ)?;
       }
       writeln!(r, ") -> std::fmt::Result,")?;
+      writeln!(r, "{}}}\n", indent)?;
+
+      writeln!(r, "{}impl{} CowAccess for {}{} {{", indent, life_time, struct_name, life_time)?;
+      writeln!(r, "{}   fn cow(&self) -> std::borrow::Cow<'static, str> {{", indent)?;
+      writeln!(r, "{}      std::borrow::Cow::Owned(self.to_string())", indent)?;
+      writeln!(r, "{}   }}", indent)?;
       writeln!(r, "{}}}\n", indent)?;
 
       writeln!(
