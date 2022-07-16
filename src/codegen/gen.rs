@@ -38,7 +38,10 @@ use std::path::Path;
 
 pub fn generate_code(default: &Local, locals: &[Local], mod_dir: &Path) -> anyhow::Result<()> {
    fn write_sep(r: &mut impl Write) -> anyhow::Result<()> {
-      writeln!(r, "///////////////////////////////////////////////////////////////////////////")?;
+      writeln!(
+         r,
+         "\n////////////////////////////////////////////////////////////////////////////////////////////////////\n"
+      )?;
       Ok(())
    }
    //-------------------------
