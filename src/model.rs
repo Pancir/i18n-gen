@@ -145,38 +145,34 @@ impl Local {
       let values = tr.iter().next().unwrap();
       root.key = values.0.to_string();
 
-      match values.1 {
-         serde_json::Value::Object(obj) => {
-            for (k, v) in obj {
-               match v {
-                  serde_json::Value::String(s) => {
-                     root.values.insert(k.clone(), ItemValue::parse(s)?);
-                  }
-                  serde_json::Value::Object(obj2) => {
-                     let children = root
-                        .groups
-                        .entry(k.to_string())
-                        .or_insert_with(|| Item { key: k.to_string(), ..Item::default() });
-                     for (k2, v2) in obj2 {
-                        match v2 {
-                           serde_json::Value::String(s) => {
-                              children.values.insert(k2.clone(), ItemValue::parse(s)?);
-                           }
-                           serde_json::Value::Object(_) => {
-                              bail!("Unexpected depth level for the key: {}", k2);
-                           }
-                           _ => bail!("Unexpected type: {:?}", v2),
-                        }
-                     }
-                  }
-                  _ => bail!("Unexpected type: {:?}", v),
-               }
-            }
+      if values.1.is_object() {
+         for (k, v) in values.1.as_object().unwrap() {
+            Local::fill_item(k, &v, &mut root)?;
          }
-         _ => bail!("Unexpected type: {:?}", values.1),
+      } else {
+         bail!("Unexpected first level value type: {:?}", values.1);
       }
 
       Ok(Self { root })
+   }
+
+   fn fill_item(key: &str, val: &serde_json::Value, item: &mut Item) -> anyhow::Result<()> {
+      match val {
+         serde_json::Value::String(s) => {
+            item.values.insert(key.to_string(), ItemValue::parse(s)?);
+         }
+         serde_json::Value::Object(obj) => {
+            let mut child = item
+               .groups
+               .entry(key.to_string())
+               .or_insert_with(|| Item { key: key.to_string(), ..Item::default() });
+            for (k, v) in obj {
+               Local::fill_item(k, &v, &mut child)?;
+            }
+         }
+         _ => bail!("Unexpected type: {:?}", val),
+      }
+      Ok(())
    }
 
    pub fn check_matching(&self, other: &Local) -> anyhow::Result<()> {

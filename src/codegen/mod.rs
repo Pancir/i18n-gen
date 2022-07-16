@@ -25,10 +25,14 @@
 **  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-use crate::codegen::generate_code;
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
 use crate::model::Local;
 use anyhow::bail;
 use std::path::Path;
+
+mod gen;
+pub(crate) mod helpers;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -61,7 +65,7 @@ pub fn generate(local_dir: &Path, mod_dir: &Path) -> anyhow::Result<()> {
       default.check_matching(&l)?;
    }
 
-   generate_code(&default, &locals, mod_dir)
+   gen::generate_code(&default, &locals, mod_dir)
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -1,0 +1,571 @@
+/*
+**  Copyright 2022 The library developers and contributors
+**
+**  Redistribution and use in source and binary forms, with or without
+**  modification, are permitted provided that the following conditions are met:
+**
+**  1.Redistributions of source code must retain the above copyright notice, this
+**    list of conditions and the following disclaimer.
+**  2.Redistributions in binary form must reproduce the above copyright notice,
+**    this list of conditions and the following disclaimer in the documentation
+**    and / or other materials provided with the distribution.
+**  3.Neither the name of the Library creator nor the names of its contributors
+**    may be used to endorse or promote products derived from this software
+**    without specific prior written permission.
+**
+**  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+**  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+**  WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+**  DISCLAIMED.IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+**  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+**  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+**  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+**  ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+**  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+**  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
+use crate::codegen::helpers::{
+   create_fn_name, create_mod_name, join_tree_path, seq_arg_names, seq_arg_types, seq_args,
+   seq_struct_members, StructNames,
+};
+use crate::model::{Item, ItemValue, Local};
+use std::fs::OpenOptions;
+use std::io::Write;
+use std::path::Path;
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+pub fn generate_code(default: &Local, locals: &[Local], mod_dir: &Path) -> anyhow::Result<()> {
+   fn write_sep(r: &mut impl Write) -> anyhow::Result<()> {
+      writeln!(r, "///////////////////////////////////////////////////////////////////////////")?;
+      Ok(())
+   }
+   //-------------------------
+
+   let mod_file_path = mod_dir.join("tr.rs");
+   let mut f =
+      OpenOptions::new().read(true).write(true).truncate(true).create(true).open(mod_file_path)?;
+
+   let mut struct_names = StructNames::default();
+   let mut tree_path = Vec::<String>::with_capacity(8);
+   writeln!(f, "#![allow(dead_code)]\n")?;
+   write_sep(&mut f)?;
+
+   //-------------------------
+
+   write!(f, "pub mod defines {{")?;
+   write_pre_defined_traits(&mut f)?;
+   write_pre_defined_structs(&mut f)?;
+   write_structs(&mut f, &mut struct_names, &default.root)?;
+   for l in locals {
+      write_structs(&mut f, &mut struct_names, &l.root)?;
+   }
+   writeln!(f, "}}")?;
+
+   //-------------------------
+
+   write_sep(&mut f)?;
+   tree_path.clear();
+   write_local(&mut f, &mut tree_path, &mut struct_names, &default.root, locals)?;
+
+   //-------------------------
+
+   write_sep(&mut f)?;
+   tree_path.clear();
+   write_global_groups(&mut f, &mut tree_path, &mut struct_names, &default.root)?;
+
+   //-------------------------
+
+   write_sep(&mut f)?;
+   tree_path.clear();
+   tree_path.push(create_mod_name(&default.root.key));
+   write_local_groups(&mut f, &mut tree_path, &mut struct_names, &default.root)?;
+   for l in locals {
+      tree_path.clear();
+      tree_path.push(create_mod_name(&l.root.key));
+      write_local_groups(&mut f, &mut tree_path, &mut struct_names, &l.root)?;
+   }
+
+   //-------------------------
+
+   write_sep(&mut f)?;
+   writeln!(f, "mod fmt {{")?;
+   write_fmt_groups(&mut f, &create_mod_name(&default.root.key), &default.root)?;
+   for l in locals {
+      write_fmt_groups(&mut f, &create_mod_name(&l.root.key), &l.root)?;
+   }
+   writeln!(f, "}}")?;
+
+   //-------------------------
+   write_sep(&mut f)?;
+   Ok(())
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+fn write_pre_defined_traits(r: &mut impl Write) -> anyhow::Result<()> {
+   write!(
+      r,
+      r#"
+      pub trait StaticAccess {{
+         fn str(&self) -> &'static str;
+      }}
+      "#
+   )?;
+   write!(
+      r,
+      r#"
+      pub trait CowAccess {{
+         fn cow(&self) -> std::borrow::Cow<'static, str>;
+      }}
+      "#
+   )?;
+   Ok(())
+}
+
+fn write_pre_defined_structs(r: &mut impl Write) -> anyhow::Result<()> {
+   write!(
+      r,
+      r#"
+      /// For 'static str
+      pub struct Str(pub &'static str);
+
+      impl StaticAccess for Str {{
+         fn str(&self) -> &'static str {{
+            self.0
+         }}
+      }}
+      impl CowAccess for Str {{
+         fn cow(&self) -> std::borrow::Cow<'static, str> {{
+            std::borrow::Cow::Borrowed(self.0)
+         }}
+      }}
+      impl std::fmt::Display for Str {{
+         fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {{
+            write!(f, "{{}}", self.0)
+         }}
+      }}
+      "#
+   )?;
+   Ok(())
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+fn write_structs(r: &mut impl Write, names: &mut StructNames, item: &Item) -> anyhow::Result<()> {
+   for value in &item.values {
+      let args = &value.1.args;
+
+      if args.is_empty() {
+         continue;
+      }
+
+      let (created, struct_name) = names.get_or_add(args);
+      if !created {
+         continue;
+      }
+
+      let life_time = if value.1.has_ref() { "<'a>" } else { "" };
+      //-------------------------------------------
+      write!(
+         r,
+         r#"
+         /// Arguments: `({})
+         pub struct {}{} {{
+            {}
+            pub fmt_fn: fn(&mut std::fmt::Formatter, {})  -> std::fmt::Result,
+         }}
+         "#,
+         seq_args(args),
+         struct_name,
+         life_time,
+         seq_struct_members(args),
+         seq_arg_types(args),
+      )?;
+      //-------------------------------------------
+      write!(
+         r,
+         r#"
+         impl{} CowAccess for {}{} {{
+            fn cow(&self) -> std::borrow::Cow<'static, str> {{
+               std::borrow::Cow::Owned(self.to_string())
+            }}
+         }}
+         "#,
+         life_time, struct_name, life_time
+      )?;
+      //-------------------------------------------
+      write!(
+         r,
+         r#"
+         impl{} std::fmt::Display for {}{} {{
+            fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {{
+               (self.fmt_fn)(f, {})
+            }}
+         }}
+         "#,
+         life_time,
+         struct_name,
+         life_time,
+         seq_arg_names("self.", args)
+      )?;
+   }
+
+   for g in &item.groups {
+      write_structs(r, names, g.1)?;
+   }
+
+   Ok(())
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/// Write format functions for group tree.
+fn write_fmt_groups(r: &mut impl Write, mod_name: &str, item: &Item) -> anyhow::Result<()> {
+   write!(r, "\npub mod {} {{", mod_name)?;
+
+   for v in &item.values {
+      write_fmt_function(r, &create_fn_name(&v.0), &v.1)?;
+   }
+
+   for item in &item.groups {
+      write_fmt_groups(r, &create_mod_name(&item.0), &item.1)?;
+   }
+
+   writeln!(r, "}}")?;
+   Ok(())
+}
+
+fn write_fmt_function(r: &mut impl Write, fn_name: &str, item: &ItemValue) -> anyhow::Result<()> {
+   if item.args.is_empty() {
+      write!(
+         r,
+         r#"
+         pub fn {}(f: &mut std::fmt::Formatter) -> std::fmt::Result {{
+            write!(f, "{}")
+         }}"#,
+         fn_name, item.fmt_str
+      )?;
+   } else {
+      write!(
+         r,
+         r#"
+         pub fn {}(f: &mut std::fmt::Formatter, {}) -> std::fmt::Result {{
+            write!(f, "{}", {})
+         }}"#,
+         fn_name,
+         seq_args(&item.args),
+         item.fmt_str,
+         seq_arg_names("", &item.args),
+      )?;
+   }
+
+   Ok(())
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/// Write local functions for group tree.
+fn write_local_groups(
+   r: &mut impl Write,
+   tree_path: &mut Vec<String>,
+   names: &mut StructNames,
+   item: &Item,
+) -> anyhow::Result<()> {
+   writeln!(r, "\npub mod {} {{", tree_path.last().unwrap())?;
+   writeln!(r, "     use super::*;")?;
+
+   for v in &item.values {
+      write_local_function(r, tree_path, names, &create_fn_name(&v.0), &v.1)?;
+   }
+
+   for item in &item.groups {
+      tree_path.push(create_mod_name(&item.0));
+      write_local_groups(r, tree_path, names, &item.1)?;
+      tree_path.pop();
+   }
+
+   writeln!(r, "}}")?;
+   Ok(())
+}
+
+fn write_local_function(
+   r: &mut impl Write,
+   tree_path: &mut Vec<String>,
+   names: &mut StructNames,
+   fn_name: &str,
+   item: &ItemValue,
+) -> anyhow::Result<()> {
+   if item.args.is_empty() {
+      write!(
+         r,
+         r#"
+         pub fn {}() -> defines::Str {{
+            defines::Str("{}")
+         }}"#,
+         fn_name, item.fmt_str
+      )?;
+   } else {
+      let (_, struct_name) = names.get_or_add(&item.args);
+      let life_time = if item.has_ref() { "<'_>" } else { "" };
+
+      write!(
+         r,
+         r#"
+         pub fn {}({}) -> defines::{}{} {{
+            defines::{} {{
+               {},
+               fmt_fn: fmt::{}{}
+            }}
+         }}"#,
+         fn_name,
+         seq_args(&item.args),
+         struct_name,
+         life_time,
+         struct_name,
+         seq_arg_names("", &item.args),
+         join_tree_path(tree_path, "::"),
+         fn_name
+      )?;
+   }
+
+   Ok(())
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/// Write global functions for group tree.
+fn write_global_groups(
+   r: &mut impl Write,
+   tree_path: &mut Vec<String>,
+   names: &mut StructNames,
+   item: &Item,
+) -> anyhow::Result<()> {
+   if !tree_path.is_empty() {
+      writeln!(r, "\npub mod {} {{", tree_path.last().unwrap())?;
+      writeln!(r, "     use super::*;")?;
+   }
+
+   for v in &item.values {
+      write_global_function(r, tree_path, names, &create_fn_name(&v.0), &v.1)?;
+   }
+
+   for item in &item.groups {
+      tree_path.push(create_mod_name(&item.0));
+      write_global_groups(r, tree_path, names, &item.1)?;
+      tree_path.pop();
+   }
+
+   if !tree_path.is_empty() {
+      writeln!(r, "}}")?;
+   }
+   Ok(())
+}
+
+fn write_global_function(
+   r: &mut impl Write,
+   tree_path: &mut Vec<String>,
+   names: &mut StructNames,
+   fn_name: &str,
+   item: &ItemValue,
+) -> anyhow::Result<()> {
+   if item.args.is_empty() {
+      write!(
+         r,
+         r#"
+         pub fn {}() -> defines::Str {{
+            unsafe {{ (local::CURRENT_LOCAL.{}{})() }}
+         }}"#,
+         fn_name,
+         join_tree_path(tree_path, "_"),
+         fn_name,
+      )?;
+   } else {
+      let (_, struct_name) = names.get_or_add(&item.args);
+      let life_time = if item.has_ref() { "<'_>" } else { "" };
+
+      write!(
+         r,
+         r#"
+         pub fn {}({}) -> defines::{}{} {{
+            unsafe {{ (local::CURRENT_LOCAL.{}{})({}) }}
+         }}"#,
+         fn_name,
+         seq_args(&item.args),
+         struct_name,
+         life_time,
+         join_tree_path(tree_path, "_"),
+         fn_name,
+         seq_arg_names("", &item.args)
+      )?;
+   }
+   Ok(())
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+fn write_local(
+   r: &mut impl Write,
+   tree_path: &mut Vec<String>,
+   names: &mut StructNames,
+   item: &Item,
+   locals: &[Local],
+) -> anyhow::Result<()> {
+   write!(
+      r,
+      r#"
+      pub mod local {{
+         use super::*;
+
+         pub struct Local {{"#
+   )?;
+   //------------------------
+   write_local_struct_members(r, tree_path, names, item)?;
+   //------------------------
+   write!(
+      r,
+      r#"
+         }}
+
+         impl Local {{
+      "#
+   )?;
+   //------------------------
+   write_local_new_fn(r, tree_path, names, item)?;
+   for l in locals {
+      write_local_new_fn(r, tree_path, names, &l.root)?;
+   }
+   //------------------------
+   write!(
+      r,
+      r#"
+         }}
+
+         pub static mut CURRENT_LOCAL: Local = Local::new_{}();
+      "#,
+      create_mod_name(&item.key)
+   )?;
+   //------------------------
+   write_set_local_fn(r, item)?;
+   for l in locals {
+      write_set_local_fn(r, &l.root)?;
+   }
+   //------------------------
+   writeln!(r, "\n}}")?;
+   Ok(())
+}
+
+fn write_set_local_fn(r: &mut impl Write, item: &Item) -> anyhow::Result<()> {
+   let mod_name = create_mod_name(&item.key);
+
+   write!(
+      r,
+      r#"
+      pub unsafe fn set_{}() {{
+         CURRENT_LOCAL = Local::new_{}();
+      }}"#,
+      mod_name, mod_name
+   )?;
+
+   Ok(())
+}
+
+fn write_local_struct_members(
+   r: &mut impl Write,
+   tree_path: &mut Vec<String>,
+   names: &mut StructNames,
+   item: &Item,
+) -> anyhow::Result<()> {
+   for v in &item.values {
+      let (_, struct_name) = names.get_or_add(&v.1.args);
+      let life_time = if v.1.has_ref() { "<'_>" } else { "" };
+
+      if v.1.args.is_empty() {
+         write!(
+            r,
+            r#"
+            pub {}{}: fn({}) -> defines::Str,"#,
+            join_tree_path(tree_path, "_"),
+            v.0,
+            seq_arg_types(&v.1.args)
+         )?;
+      } else {
+         write!(
+            r,
+            r#"
+            pub {}{}: fn({}) -> defines::{}{},"#,
+            join_tree_path(tree_path, "_"),
+            v.0,
+            seq_arg_types(&v.1.args),
+            struct_name,
+            life_time
+         )?;
+      }
+   }
+
+   for g in &item.groups {
+      tree_path.push(create_mod_name(&g.0));
+      write_local_struct_members(r, tree_path, names, &g.1)?;
+      tree_path.pop();
+   }
+   Ok(())
+}
+
+fn write_local_new_fn_init(
+   r: &mut impl Write,
+   tree_path: &mut Vec<String>,
+   names: &mut StructNames,
+   item: &Item,
+) -> anyhow::Result<()> {
+   for v in &item.values {
+      write!(
+         r,
+         r#"
+            {}{}: {}{},"#,
+         join_tree_path(&tree_path[1..], "_"),
+         v.0,
+         join_tree_path(tree_path, "::"),
+         v.0,
+      )?;
+   }
+
+   for g in &item.groups {
+      tree_path.push(create_mod_name(&g.0));
+      write_local_new_fn_init(r, tree_path, names, &g.1)?;
+      tree_path.pop();
+   }
+   Ok(())
+}
+
+fn write_local_new_fn(
+   r: &mut impl Write,
+   tree_path: &mut Vec<String>,
+   names: &mut StructNames,
+   item: &Item,
+) -> anyhow::Result<()> {
+   let mod_name = create_mod_name(&item.key);
+
+   write!(
+      r,
+      r#"pub const fn new_{}() -> Self {{
+            Self {{"#,
+      mod_name
+   )?;
+
+   tree_path.push(mod_name);
+   write_local_new_fn_init(r, tree_path, names, item)?;
+   tree_path.pop();
+
+   write!(
+      r,
+      r#"
+         }}
+      }}
+      "#
+   )?;
+
+   Ok(())
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////

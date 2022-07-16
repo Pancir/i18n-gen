@@ -6,3 +6,5 @@ en-EN:
     hello: hello world from group!
     greet: hello ${name} from group!
     count: number ${val1:u32} and ${val2:u32} from group!
+    group_lvl2:
+      hello: hello world from group 2!
