@@ -1,7 +1,16 @@
 [package]
+authors = ["Alexander Khudekov"]
+edition = "2021"
+categories = ["localization", "internationalization"]
+keywords = ["localization", "internationalization", "i18n", "l10n"]
+license = "BSD 3-Clause"
+description = "i18n codegen from .yml files"
+exclude = ["example"]
+readme = "README.md"
+repository = "https://github.com/Pancir/i18n-gen"
 name = "i18n-gen"
 version = "0.1.0"
-edition = "2021"
+
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
