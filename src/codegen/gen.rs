@@ -301,10 +301,11 @@ fn write_local_function(
       write!(
          r,
          r#"
+         /// Text: `{}`
          pub fn {}() -> defines::Str {{
             defines::Str("{}")
          }}"#,
-         fn_name, item.fmt_str
+         item.fmt_str, fn_name, item.fmt_str
       )?;
    } else {
       let (_, struct_name) = names.get_or_add(&item.args);
@@ -313,12 +314,14 @@ fn write_local_function(
       write!(
          r,
          r#"
+         /// Text: `{}`
          pub fn {}({}) -> defines::{}{} {{
             defines::{} {{
                {},
                fmt_fn: fmt::{}{}
             }}
          }}"#,
+         item.fmt_str,
          fn_name,
          seq_args(&item.args),
          struct_name,
@@ -374,9 +377,11 @@ fn write_global_function(
       write!(
          r,
          r#"
+         /// Text: `{}`
          pub fn {}() -> defines::Str {{
             unsafe {{ (local::CURRENT_LOCAL.{}{})() }}
          }}"#,
+         item.fmt_str,
          fn_name,
          join_tree_path(tree_path, "_"),
          fn_name,
@@ -388,9 +393,11 @@ fn write_global_function(
       write!(
          r,
          r#"
+         /// Text: `{}`
          pub fn {}({}) -> defines::{}{} {{
             unsafe {{ (local::CURRENT_LOCAL.{}{})({}) }}
          }}"#,
+         item.fmt_str,
          fn_name,
          seq_args(&item.args),
          struct_name,
@@ -415,6 +422,7 @@ fn write_local(
    write!(
       r,
       r#"
+      /// Represents a local.
       pub mod local {{
          use super::*;
 
@@ -462,10 +470,22 @@ fn write_set_local_fn(r: &mut impl Write, item: &Item) -> anyhow::Result<()> {
    write!(
       r,
       r#"
+
+      /// Set the current local to `{}`
+      ///
+      /// # Safety
+      /// It uses internal `mut static` variable without protection for setting current local.
+      /// So it is NOT thread safe and there is no borrow checking as well.
+      ///
+      /// Motivation:
+      ///   I have not thought about optimal solution yet but it seems
+      ///   it is not a good idea to wrap the internal `mut static` variable with a mutex.
+      ///   Usual the use case is set local once while your application starting.
+      ///   For this situation usage of this function quite safe.
       pub unsafe fn set_{}() {{
          CURRENT_LOCAL = Local::new_{}();
       }}"#,
-      mod_name, mod_name
+      item.key, mod_name, mod_name
    )?;
 
    Ok(())
@@ -548,9 +568,11 @@ fn write_local_new_fn(
 
    write!(
       r,
-      r#"pub const fn new_{}() -> Self {{
+      r#"
+      /// Create new `{}` local.
+      pub const fn new_{}() -> Self {{
             Self {{"#,
-      mod_name
+      item.key, mod_name
    )?;
 
    tree_path.push(mod_name);
