@@ -228,7 +228,7 @@ mod tests {
    #[test]
    fn test_load_local() {
       init_logger();
-      let file = test_assets_dir(Some("!default.yml"));
+      let file = test_assets_dir(Some("en-EN.yml"));
       let local = Local::load(&file).unwrap();
       assert_eq!("en-EN", local.root.key);
 
@@ -245,12 +245,12 @@ mod tests {
    #[test]
    fn test_matching() {
       init_logger();
-      let local1 = Local::load(&test_assets_dir(Some("!default.yml"))).unwrap();
+      let local1 = Local::load(&test_assets_dir(Some("en-EN.yml"))).unwrap();
       let local2 = Local::load(&test_assets_dir(Some("matching/match.yml"))).unwrap();
       let local3 = Local::load(&test_assets_dir(Some("matching/not_match.yml"))).unwrap();
       assert_eq!("en-EN", local1.root.key);
-      assert_eq!("ru", local2.root.key);
-      assert_eq!("ru", local3.root.key);
+      assert_eq!("ru1", local2.root.key);
+      assert_eq!("ru2", local3.root.key);
       local1.check_matching(&local2).unwrap();
 
       assert!(local1.check_matching(&local3).is_err())

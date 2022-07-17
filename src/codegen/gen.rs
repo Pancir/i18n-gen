@@ -36,7 +36,7 @@ use std::path::Path;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-pub fn generate_code(default: &Local, locals: &[Local], mod_dir: &Path) -> anyhow::Result<()> {
+pub fn generate_code(locals: &[Local], mod_dir: &Path) -> anyhow::Result<()> {
    fn write_sep(r: &mut impl Write) -> anyhow::Result<()> {
       writeln!(
          r,
@@ -60,7 +60,6 @@ pub fn generate_code(default: &Local, locals: &[Local], mod_dir: &Path) -> anyho
    write!(f, "pub mod defines {{")?;
    write_pre_defined_traits(&mut f)?;
    write_pre_defined_structs(&mut f)?;
-   write_structs(&mut f, &mut struct_names, &default.root)?;
    for l in locals {
       write_structs(&mut f, &mut struct_names, &l.root)?;
    }
@@ -70,20 +69,17 @@ pub fn generate_code(default: &Local, locals: &[Local], mod_dir: &Path) -> anyho
 
    write_sep(&mut f)?;
    tree_path.clear();
-   write_local(&mut f, &mut tree_path, &mut struct_names, &default.root, locals)?;
+   write_local(&mut f, &mut tree_path, &mut struct_names, locals)?;
 
    //-------------------------
 
    write_sep(&mut f)?;
    tree_path.clear();
-   write_global_groups(&mut f, &mut tree_path, &mut struct_names, &default.root)?;
+   write_global_groups(&mut f, &mut tree_path, &mut struct_names, &locals.first().unwrap().root)?;
 
    //-------------------------
 
    write_sep(&mut f)?;
-   tree_path.clear();
-   tree_path.push(create_mod_name(&default.root.key));
-   write_local_groups(&mut f, &mut tree_path, &mut struct_names, &default.root)?;
    for l in locals {
       tree_path.clear();
       tree_path.push(create_mod_name(&l.root.key));
@@ -94,7 +90,6 @@ pub fn generate_code(default: &Local, locals: &[Local], mod_dir: &Path) -> anyho
 
    write_sep(&mut f)?;
    writeln!(f, "mod fmt {{")?;
-   write_fmt_groups(&mut f, &create_mod_name(&default.root.key), &default.root)?;
    for l in locals {
       write_fmt_groups(&mut f, &create_mod_name(&l.root.key), &l.root)?;
    }
@@ -304,7 +299,7 @@ fn write_local_function(
       write!(
          r,
          r#"
-         /// Text: `{}`
+         /// Text: `"{}"`
          pub fn {}() -> defines::Str {{
             defines::Str("{}")
          }}"#,
@@ -317,7 +312,7 @@ fn write_local_function(
       write!(
          r,
          r#"
-         /// Text: `{}`
+         /// Text: `"{}"`
          pub fn {}({}) -> defines::{}{} {{
             defines::{} {{
                {},
@@ -380,7 +375,7 @@ fn write_global_function(
       write!(
          r,
          r#"
-         /// Text: `{}`
+         /// Text: `"{}"`
          pub fn {}() -> defines::Str {{
             unsafe {{ (local::CURRENT_LOCAL.{}{})() }}
          }}"#,
@@ -396,7 +391,7 @@ fn write_global_function(
       write!(
          r,
          r#"
-         /// Text: `{}`
+         /// Text: `"{}"`
          pub fn {}({}) -> defines::{}{} {{
             unsafe {{ (local::CURRENT_LOCAL.{}{})({}) }}
          }}"#,
@@ -419,9 +414,10 @@ fn write_local(
    r: &mut impl Write,
    tree_path: &mut Vec<String>,
    names: &mut StructNames,
-   item: &Item,
    locals: &[Local],
 ) -> anyhow::Result<()> {
+   let default = locals.first().unwrap();
+   //------------------------
    write!(
       r,
       r#"
@@ -432,7 +428,7 @@ fn write_local(
          pub struct Local {{"#
    )?;
    //------------------------
-   write_local_struct_members(r, tree_path, names, item)?;
+   write_local_struct_members(r, tree_path, names, &default.root)?;
    //------------------------
    write!(
       r,
@@ -443,7 +439,6 @@ fn write_local(
       "#
    )?;
    //------------------------
-   write_local_new_fn(r, tree_path, names, item)?;
    for l in locals {
       write_local_new_fn(r, tree_path, names, &l.root)?;
    }
@@ -455,10 +450,9 @@ fn write_local(
 
          pub static mut CURRENT_LOCAL: Local = Local::new_{}();
       "#,
-      create_mod_name(&item.key)
+      create_mod_name(&default.root.key)
    )?;
    //------------------------
-   write_set_local_fn(r, item)?;
    for l in locals {
       write_set_local_fn(r, &l.root)?;
    }
@@ -484,7 +478,7 @@ fn write_set_local_fn(r: &mut impl Write, item: &Item) -> anyhow::Result<()> {
       ///   I have not thought about optimal solution yet but it seems
       ///   it is not a good idea to wrap the internal `mut static` variable with a mutex.
       ///   Usual the use case is set local once while your application starting.
-      ///   For this situation usage of this function quite safe.
+      ///   For such a use case calling this function is quite safe.
       pub unsafe fn set_{}() {{
          CURRENT_LOCAL = Local::new_{}();
       }}"#,

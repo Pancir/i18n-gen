@@ -1,4 +1,4 @@
-ru:
+ru1:
   hello: привет мир!
   greet: привет ${name:&str}!
   count: число ${value:u32}!

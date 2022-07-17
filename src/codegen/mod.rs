@@ -36,16 +36,29 @@ pub(crate) mod helpers;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-pub fn generate(local_dir: &Path, mod_dir: &Path) -> anyhow::Result<()> {
-   let default_file = local_dir.join("!default.yml");
-   if !default_file.exists() {
-      bail!("There is not !default.yml file in the dir: {}", local_dir.display());
+pub struct Config {
+   /// File name without extension for default local.
+   ///
+   /// It is also a main scheme template.
+   /// Scheme of other locals will be compared to this one.
+   pub default_local_file: &'static str,
+}
+
+impl Default for Config {
+   fn default() -> Self {
+      Self { default_local_file: "en-EN" }
    }
+}
 
-   let default = Local::load(&default_file)?;
-   println!("Loaded [{}]", default_file.display());
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/// Generate translation module using path to dir.
+///
+/// # Notes
+/// The function walk only one dir level. I.e. not walking subdirs.
+pub fn generate(local_dir: &Path, mod_dir: &Path, config: Config) -> anyhow::Result<()> {
    let mut locals = Vec::<Local>::with_capacity(64);
+   let mut default_local_key = String::with_capacity(64);
 
    for entry in std::fs::read_dir(local_dir)? {
       let entry = entry?;
@@ -53,19 +66,51 @@ pub fn generate(local_dir: &Path, mod_dir: &Path) -> anyhow::Result<()> {
          let path = entry.path();
          if let Some(ext) = path.extension() {
             if ext == "yml" {
-               locals.push(Local::load(&path)?);
+               // TODO may be it is a good idea to check if file name matches local code key.
+               let local = Local::load(&path)?;
+               if path.file_name().unwrap().to_str().unwrap().starts_with(config.default_local_file)
+               {
+                  default_local_key = local.root.key.clone();
+               }
+               locals.push(local);
             }
          }
       }
    }
 
-   locals.retain(|v| v.root.key != default.root.key);
+   if default_local_key.is_empty() {
+      bail!(
+         "The default local file [{}.yml] in the directory [{}] is not found!",
+         &config.default_local_file,
+         local_dir.display()
+      );
+   }
 
-   for l in &locals {
+   let mut default_position: usize = 0;
+   for (i, loc) in locals.iter().enumerate() {
+      if loc.root.key == default_local_key {
+         default_position = i;
+      }
+
+      if i < locals.len() - 1 {
+         for other in &locals[(i + 1)..] {
+            if other.root.key == loc.root.key {
+               bail!("More than one local with the same code [{}] is found!", other.root.key);
+            }
+         }
+      }
+   }
+
+   if default_position != 0 {
+      locals.swap(default_position, 0)
+   }
+
+   let default = locals.first().unwrap();
+   for l in &locals[1..] {
       default.check_matching(&l)?;
    }
 
-   gen::generate_code(&default, &locals, mod_dir)
+   gen::generate_code(&locals, mod_dir)
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -78,7 +123,7 @@ mod tests {
    #[test]
    fn test_generate() {
       init_logger();
-      generate(&test_assets_dir(None), &test_gen_dir(None)).unwrap()
+      generate(&test_assets_dir(None), &test_gen_dir(None), Config::default()).unwrap()
    }
 }
 

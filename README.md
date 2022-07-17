@@ -15,8 +15,7 @@
 - `.yml` files for storing translations.
 - It is a dependency for compile(build) time only. Your code needs to `use` only generated file which uses only standard library.   
 (Can be changed in the future)
-- Allocation free. Generated functions return structures which implement `std::fmt::Display` instead of `String` so, 
-you are responsible what to do in the next step. There is no new String creation (so - no allocation).
+- Allocation free. Generated functions return structures which implement `std::fmt::Display` instead of `String` so, you are responsible what to do in the next step. No new `String` creation - no a new heap allocation.
 - Translation text variables support types. (see examples)
 - Any types including custom ones which implement `std::fmt::Display` can be used as a text variable.
 - Text without variables can be extracted as `&'static str`
@@ -41,8 +40,9 @@ i18n = {git = "ssh://git@github.com/Pancir/i18n-gen", rev="2babfa1", package="i1
 If you have problem in previous step you probably need to read about the git and the rust cargo settings.
 
 - Create a directory where you will store your translations.
-This directory must contain file `!defatul.yml` which is considered by the generator as a main template file.  
-Example:
+This directory must contain file `en-EN.yml` which is considered by the generator as a main template file.  
+(You may change default file name via `Config` struct)  
+File content example:
 ```yml
 en-EN:
   hello: hello world!
@@ -77,10 +77,10 @@ For example: the `count: number ${val1:u32} and ${val2:u32} from group!` will be
 ├── Cargo.toml
 ├── build.rs
 ├── i18n
-│   ├── !default.yml // ! - is used for sorting (this file is always on top)
+│   ├── en-EN.yml
 │   ├── ru-RU.yml
 └── src
-    ├── tr.rs // generated
+    ├── tr.rs // will be generated
     └── main.rs
 ```
 Actually input/output directories can be chosen.
@@ -98,7 +98,7 @@ fn main() {
     let out_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src");
     
     // Generate rust module code.
-    i18n::generate(&i18n_dir, &out_dir).unwrap();
+    i18n::generate(&i18n_dir, &out_dir, i18n::Config::default()).unwrap();
     
     // Tells cargo to re-run this code whenever 
     // the directory with your translations is changed.
