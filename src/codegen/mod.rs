@@ -36,17 +36,28 @@ pub(crate) mod helpers;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/// Generator configuration.
 pub struct Config {
    /// File name without extension for default local.
    ///
    /// It is also a main scheme template.
    /// Scheme of other locals will be compared to this one.
+   ///
+   /// Default: "en-EN"
    pub default_local_file: &'static str,
+
+   /// It true then the `allow(dead_code)` attr will be written on top of the generated file.
+   ///
+   /// Set it to false and this can help you to find text that is not used
+   /// if the generated `tr` module is not public.
+   ///
+   /// Default: true
+   pub dead_code_attr: bool,
 }
 
 impl Default for Config {
    fn default() -> Self {
-      Self { default_local_file: "en-EN" }
+      Self { default_local_file: "en-EN", dead_code_attr: true }
    }
 }
 
@@ -110,7 +121,7 @@ pub fn generate(local_dir: &Path, mod_dir: &Path, config: Config) -> anyhow::Res
       default.check_matching(&l)?;
    }
 
-   gen::generate_code(&locals, mod_dir)
+   gen::generate_code(&locals, mod_dir, config)
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

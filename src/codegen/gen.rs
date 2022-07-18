@@ -30,13 +30,14 @@ use crate::codegen::helpers::{
    seq_struct_members, StructNames,
 };
 use crate::model::{Item, ItemValue, Local};
+use crate::Config;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::Path;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-pub fn generate_code(locals: &[Local], mod_dir: &Path) -> anyhow::Result<()> {
+pub fn generate_code(locals: &[Local], mod_dir: &Path, config: Config) -> anyhow::Result<()> {
    fn write_sep(r: &mut impl Write) -> anyhow::Result<()> {
       writeln!(
          r,
@@ -52,7 +53,9 @@ pub fn generate_code(locals: &[Local], mod_dir: &Path) -> anyhow::Result<()> {
 
    let mut struct_names = StructNames::default();
    let mut tree_path = Vec::<String>::with_capacity(8);
-   writeln!(f, "#![allow(dead_code)]\n")?;
+   if config.dead_code_attr {
+      writeln!(f, "#![allow(dead_code)]\n")?;
+   }
    write_sep(&mut f)?;
 
    //-------------------------
