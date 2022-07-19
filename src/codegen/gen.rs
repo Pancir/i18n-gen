@@ -145,7 +145,7 @@ fn write_pre_defined_atomic_fn(r: &mut impl Write) -> anyhow::Result<()> {
          }}
          #[inline]
          pub fn store(&self, val: T) {{
-            type A = core::sync::atomic::AtomicIsize;
+            type A = core::sync::atomic::AtomicUsize;
             unsafe {{
                (*(self.inner_ptr() as *const A))
                   .store(std::mem::transmute_copy(&val), core::sync::atomic::Ordering::Relaxed)
@@ -153,7 +153,7 @@ fn write_pre_defined_atomic_fn(r: &mut impl Write) -> anyhow::Result<()> {
          }}
          #[inline]
          pub fn load(&self) -> T {{
-            type A = core::sync::atomic::AtomicIsize;
+            type A = core::sync::atomic::AtomicUsize;
             unsafe {{
                std::mem::transmute_copy(
                   &(*(self.inner_ptr() as *const A)).load(core::sync::atomic::Ordering::Relaxed),
