@@ -117,7 +117,7 @@ fn write_pre_defined_atomic_fn(r: &mut impl Write) -> anyhow::Result<()> {
       r#"
       //----------------------------------------
 
-      /// Allowd atomar operations for function pointers.
+      /// Atomic primitive for function pointers.
       ///
       /// [the atomic-rs crate](https://github.com/Amanieu/atomic-rs)
       /// was used as a reference.
@@ -137,8 +137,8 @@ fn write_pre_defined_atomic_fn(r: &mut impl Write) -> anyhow::Result<()> {
                panic!(
                   "Type size mismatch! \
                    If you see this message then you use an unexpected/unimplemented use case. \
-                   Or somthing was changed in the Rust std library. \
-                   Or Uunexpected platroform."
+                   Or something was changed in the Rust std library. \
+                   Or Unexpected platform."
                );
             }}
             Self {{ v: core::cell::UnsafeCell::new(v) }}
@@ -609,7 +609,7 @@ fn write_local(
       r,
       r#"
 
-         /// Set the current local using key, for exmaple: `en-EN`
+         /// Set the current local using key, for example: `en-EN`
          ///
          /// # Return
          ///   False if local for the specified key does not exist.
@@ -639,7 +639,7 @@ fn write_local(
       r,
       r#"
 
-         /// Numveb of available locals.
+         /// Number of available locals.
          ///
          /// Can be used to create a simple array `[MyType; tr::local::NUMBER];`
          pub const NUMBER: usize = {};
