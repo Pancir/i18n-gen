@@ -641,7 +641,7 @@ fn write_local(
 
          /// Get list of available local keys.
          pub fn list() -> &'static[&'static str] {{
-            const LIST: [&'static str; {}] = ["#,
+            const LIST: [&str; {}] = ["#,
       locals.len()
    )?;
    for l in locals {
