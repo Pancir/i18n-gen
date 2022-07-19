@@ -30,7 +30,7 @@ mod tr;
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 fn main() {
-   unsafe { tr::local::set_en_en() };
+   tr::local::set_en_en();
    println!("===============================");
    println!("No group");
    println!("  {}", tr::hello());
@@ -47,7 +47,7 @@ fn main() {
    println!("  {}", tr::group::group_lvl2::hello());
    println!();
 
-   unsafe { tr::local::set_ru_ru() };
+   tr::local::set_ru_ru();
    println!("===============================");
    println!("No group");
    println!("  {}", tr::hello());
@@ -83,7 +83,7 @@ mod tests {
 
    #[test]
    fn test_locals() {
-      unsafe { tr::local::set_en_en() };
+      tr::local::set_en_en();
       assert_eq!("hello world!", tr::hello().str());
       assert_eq!("hello Test!", tr::greet("Test").to_string());
       assert_eq!("number 42!", tr::count(42).to_string());
@@ -94,7 +94,7 @@ mod tests {
 
       assert_eq!("hello world from group 2!", tr::group::group_lvl2::hello().str());
 
-      unsafe { tr::local::set_ru_ru() };
+      tr::local::set_ru_ru();
       assert_eq!("привет мир!", tr::hello().str());
       assert_eq!("привет Тэст!", tr::greet("Тэст").to_string());
       assert_eq!("число 42!", tr::count(42).to_string());

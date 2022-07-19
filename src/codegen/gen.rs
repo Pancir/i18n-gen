@@ -54,8 +54,9 @@ pub fn generate_code(locals: &[Local], mod_dir: &Path, config: Config) -> anyhow
    let mut struct_names = StructNames::default();
    let mut tree_path = Vec::<String>::with_capacity(8);
    if config.dead_code_attr {
-      writeln!(f, "#![allow(dead_code)]\n")?;
+      writeln!(f, "#![allow(dead_code)]")?;
    }
+   writeln!(f, "#![allow(non_upper_case_globals)]")?;
    write_sep(&mut f)?;
 
    //-------------------------
@@ -71,6 +72,11 @@ pub fn generate_code(locals: &[Local], mod_dir: &Path, config: Config) -> anyhow
    //-------------------------
 
    write_sep(&mut f)?;
+   tree_path.clear();
+   write_local_statics(&mut f, &mut tree_path, &mut struct_names, locals)?;
+
+   //-------------------------
+
    tree_path.clear();
    write_local(&mut f, &mut tree_path, &mut struct_names, locals)?;
 
@@ -104,6 +110,68 @@ pub fn generate_code(locals: &[Local], mod_dir: &Path, config: Config) -> anyhow
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+fn write_pre_defined_atomic_fn(r: &mut impl Write) -> anyhow::Result<()> {
+   write!(
+      r,
+      r#"
+      //----------------------------------------
+
+      /// Allowd atomar operations for function pointers.
+      ///
+      /// [the atomic-rs crate](https://github.com/Amanieu/atomic-rs)
+      /// was used as a reference.
+      ///
+      /// This is used to safe switching the current local functions.
+      ///
+      /// TODO Rewtite it as soon as Rust has an Atomic that supports function pointers.
+      /// https://github.com/rust-lang/rfcs/issues/2481
+      pub struct AtomicFn<T> {{
+         v: core::cell::UnsafeCell<T>,
+      }}
+      impl<T> AtomicFn<T> {{
+         #[inline]
+         pub const fn new(v: T) -> Self {{
+            type A = core::sync::atomic::AtomicUsize;
+            if std::mem::size_of::<Self>() != std::mem::size_of::<A>() {{
+               panic!(
+                  "Type size mismatch! \
+                   If you see this message then you use an unexpected/unimplemented use case. \
+                   Or somthing was changed in the Rust std library. \
+                   Or Uunexpected platroform."
+               );
+            }}
+            Self {{ v: core::cell::UnsafeCell::new(v) }}
+         }}
+         #[inline]
+         pub fn store(&self, val: T) {{
+            type A = core::sync::atomic::AtomicIsize;
+            unsafe {{
+               (*(self.inner_ptr() as *const A))
+                  .store(std::mem::transmute_copy(&val), core::sync::atomic::Ordering::Relaxed)
+            }}
+         }}
+         #[inline]
+         pub fn load(&self) -> T {{
+            type A = core::sync::atomic::AtomicIsize;
+            unsafe {{
+               std::mem::transmute_copy(
+                  &(*(self.inner_ptr() as *const A)).load(core::sync::atomic::Ordering::Relaxed),
+               )
+            }}
+         }}
+         #[inline]
+         fn inner_ptr(&self) -> *mut T {{
+            self.v.get() as *mut T
+         }}
+      }}
+      unsafe impl<T: Copy + Send> Sync for AtomicFn<T> {{}}
+
+      //----------------------------------------
+      "#
+   )?;
+   Ok(())
+}
 
 fn write_pre_defined_traits(r: &mut impl Write) -> anyhow::Result<()> {
    write!(
@@ -380,7 +448,7 @@ fn write_global_function(
          r#"
          /// Text: `"{}"`
          pub fn {}() -> defines::Str {{
-            unsafe {{ (local::CURRENT_LOCAL.{}{})() }}
+            (curr_lcl_fns::{}{}.load())()
          }}"#,
          item.fmt_str,
          fn_name,
@@ -396,7 +464,7 @@ fn write_global_function(
          r#"
          /// Text: `"{}"`
          pub fn {}({}) -> defines::{}{} {{
-            unsafe {{ (local::CURRENT_LOCAL.{}{})({}) }}
+            (curr_lcl_fns::{}{}.load())({})
          }}"#,
          item.fmt_str,
          fn_name,
@@ -413,6 +481,73 @@ fn write_global_function(
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+fn write_local_statics(
+   r: &mut impl Write,
+   tree_path: &mut Vec<String>,
+   names: &mut StructNames,
+   locals: &[Local],
+) -> anyhow::Result<()> {
+   let default = locals.first().unwrap();
+   tree_path.push(create_mod_name(&default.root.key));
+   //------------------------
+   writeln!(r, "mod curr_lcl_fns {{\n   use super::*;")?;
+   //------------------------
+   write_pre_defined_atomic_fn(r)?;
+   //------------------------
+   write_local_static_fns(r, tree_path, names, &locals.first().unwrap().root)?;
+   //------------------------
+   writeln!(r, "\n}}\n")?;
+   tree_path.pop();
+   Ok(())
+}
+
+fn write_local_static_fns(
+   r: &mut impl Write,
+   tree_path: &mut Vec<String>,
+   names: &mut StructNames,
+   item: &Item,
+) -> anyhow::Result<()> {
+   for v in &item.values {
+      let (_, struct_name) = names.get_or_add(&v.1.args);
+      let life_time = if v.1.has_ref() { "<'_>" } else { "" };
+
+      if v.1.args.is_empty() {
+         write!(
+            r,
+            r#"
+            pub static {}{}: AtomicFn<fn({}) -> defines::Str> = AtomicFn::new({}{});"#,
+            join_tree_path(&tree_path[1..], "_"),
+            v.0,
+            seq_arg_types(&v.1.args),
+            join_tree_path(tree_path, "::"),
+            v.0,
+         )?;
+      } else {
+         write!(
+            r,
+            r#"
+            pub static {}{}: AtomicFn<fn({}) -> defines::{}{}> = AtomicFn::new({}{});"#,
+            join_tree_path(&tree_path[1..], "_"),
+            v.0,
+            seq_arg_types(&v.1.args),
+            struct_name,
+            life_time,
+            join_tree_path(tree_path, "::"),
+            v.0,
+         )?;
+      }
+   }
+
+   for g in &item.groups {
+      tree_path.push(create_mod_name(&g.0));
+      write_local_static_fns(r, tree_path, names, &g.1)?;
+      tree_path.pop();
+   }
+   Ok(())
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
 fn write_local(
    r: &mut impl Write,
    tree_path: &mut Vec<String>,
@@ -421,14 +556,12 @@ fn write_local(
 ) -> anyhow::Result<()> {
    let default = locals.first().unwrap();
    //------------------------
+   write!(r, "pub mod local {{\n   use super::*;\n")?;
+   //------------------------
    write!(
       r,
       r#"
-      /// Represents a local.
-      pub mod local {{
-         use super::*;
-
-         pub struct Local {{"#
+      pub struct Local {{"#
    )?;
    //------------------------
    write_local_struct_members(r, tree_path, names, &default.root)?;
@@ -449,44 +582,57 @@ fn write_local(
    write!(
       r,
       r#"
-         }}
-
-         pub static mut CURRENT_LOCAL: Local = Local::new_{}();
-      "#,
-      create_mod_name(&default.root.key)
+         }}"#,
    )?;
    //------------------------
    for l in locals {
-      write_set_local_fn(r, &l.root)?;
+      let moc_name = create_mod_name(&l.root.key);
+      write!(
+         r,
+         r#"
+
+         /// Set the current local to `{}`
+         pub fn set_{}() {{
+         "#,
+         moc_name, moc_name
+      )?;
+      write_set_local_fn(r, tree_path, names, &moc_name, &l.root)?;
+      write!(
+         r,
+         r#"
+         }}"#
+      )?;
    }
    //------------------------
    writeln!(r, "\n}}")?;
    Ok(())
 }
 
-fn write_set_local_fn(r: &mut impl Write, item: &Item) -> anyhow::Result<()> {
-   let mod_name = create_mod_name(&item.key);
+fn write_set_local_fn(
+   r: &mut impl Write,
+   tree_path: &mut Vec<String>,
+   names: &mut StructNames,
+   mod_name: &str,
+   item: &Item,
+) -> anyhow::Result<()> {
+   for v in &item.values {
+      write!(
+         r,
+         r#"
+            curr_lcl_fns::{}{}.store({}::{}{});"#,
+         join_tree_path(&tree_path, "_"),
+         v.0,
+         mod_name,
+         join_tree_path(tree_path, "::"),
+         v.0,
+      )?;
+   }
 
-   write!(
-      r,
-      r#"
-
-      /// Set the current local to `{}`
-      ///
-      /// # Safety
-      /// It uses internal `mut static` variable without protection for setting current local.
-      /// So it is NOT thread safe and there is no borrow checking as well.
-      ///
-      /// Motivation:
-      ///   I have not thought about optimal solution yet but it seems
-      ///   it is not a good idea to wrap the internal `mut static` variable with a mutex.
-      ///   Usual the use case is set local once while your application starting.
-      ///   For such a use case calling this function is quite safe.
-      pub unsafe fn set_{}() {{
-         CURRENT_LOCAL = Local::new_{}();
-      }}"#,
-      item.key, mod_name, mod_name
-   )?;
+   for g in &item.groups {
+      tree_path.push(create_mod_name(&g.0));
+      write_set_local_fn(r, tree_path, names, mod_name, &g.1)?;
+      tree_path.pop();
+   }
 
    Ok(())
 }

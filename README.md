@@ -2,10 +2,9 @@
 
 ## WARNING
 - The library is in a **prototype** state. 
-- It does not have a stable interface so, any new version may break backward compatibility.   
-- Also, it is not presented in the [crates.io](https://crates.io/) at this moment.  
-- As it is a prototype it does not have a good internal architecture yet.  
-- There is `unsafe` code at this moment. (used for `static mut` variable which represents current selected local)  
+- It does not have a stable interface so, any new version may break backward compatibility.
+- Also, it is not presented in the [crates.io](https://crates.io/) at this moment.
+- As it is a prototype it does not have a good internal architecture yet.
 - It supports text translation only. I.e. it does not support formatting for dates, currency, values etc...
 - It does not support runtime loading translation files.
 
@@ -35,7 +34,7 @@ i18n = {git = "ssh://git@github.com/Pancir/i18n-gen", version="0.1", package="i1
 or with a specific commit instead of version
 ```toml
 [build-dependencies]
-i18n = {git = "ssh://git@github.com/Pancir/i18n-gen", rev="2babfa1", package="i18n-gen"}
+i18n = {git = "ssh://git@github.com/Pancir/i18n-gen", rev="c098531", package="i18n-gen"}
 ```
 If you have problem in previous step you probably need to read about the git and the rust cargo settings.
 
@@ -112,11 +111,7 @@ mod tr;
 
 fn main() {
     // The first you have to set your current local.
-    // It is unsafe at this moment because it needs 
-    // to access to a mut static internal variable.
-    // So this function IS NOT THREAD SAFE!
-    // I will consider to remove unsafe code in future.
-    unsafe { tr::local::set_en_en() };
+    tr::local::set_en_en();
     
     // After run building you will be able to use generated code.
     println!("{}", tr::hello());
