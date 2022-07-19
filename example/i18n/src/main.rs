@@ -110,6 +110,7 @@ mod tests {
       assert_eq!("number 42!", tr::count(42).to_string());
 
       let list = tr::local::list();
+      assert_eq!(tr::local::NUMBER, list.len());
       assert_eq!("en-EN", list[0]);
       assert_eq!("ru-RU", list[1]);
    }

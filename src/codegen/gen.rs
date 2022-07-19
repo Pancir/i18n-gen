@@ -639,9 +639,14 @@ fn write_local(
       r,
       r#"
 
+         /// Numveb of available locals.
+         ///
+         /// Can be used to create a simple array `[MyType; tr::local::NUMBER];`
+         pub const NUMBER: usize = {};
+
          /// Get list of available local keys.
          pub fn list() -> &'static[&'static str] {{
-            const LIST: [&str; {}] = ["#,
+            const LIST: [&str; NUMBER] = ["#,
       locals.len()
    )?;
    for l in locals {
