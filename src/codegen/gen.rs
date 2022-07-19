@@ -133,7 +133,7 @@ fn write_pre_defined_atomic_fn(r: &mut impl Write) -> anyhow::Result<()> {
          #[inline]
          pub const fn new(v: T) -> Self {{
             type A = core::sync::atomic::AtomicUsize;
-            if std::mem::size_of::<Self>() != std::mem::size_of::<A>() {{
+            if core::mem::size_of::<Self>() != core::mem::size_of::<A>() {{
                panic!(
                   "Type size mismatch! \
                    If you see this message then you use an unexpected/unimplemented use case. \
@@ -148,14 +148,14 @@ fn write_pre_defined_atomic_fn(r: &mut impl Write) -> anyhow::Result<()> {
             type A = core::sync::atomic::AtomicUsize;
             unsafe {{
                (*(self.inner_ptr() as *const A))
-                  .store(std::mem::transmute_copy(&val), core::sync::atomic::Ordering::Relaxed)
+                  .store(core::mem::transmute_copy(&val), core::sync::atomic::Ordering::Relaxed)
             }}
          }}
          #[inline]
          pub fn load(&self) -> T {{
             type A = core::sync::atomic::AtomicUsize;
             unsafe {{
-               std::mem::transmute_copy(
+               core::mem::transmute_copy(
                   &(*(self.inner_ptr() as *const A)).load(core::sync::atomic::Ordering::Relaxed),
                )
             }}
@@ -210,8 +210,8 @@ fn write_pre_defined_structs(r: &mut impl Write) -> anyhow::Result<()> {
             std::borrow::Cow::Borrowed(self.0)
          }}
       }}
-      impl std::fmt::Display for Str {{
-         fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {{
+      impl core::fmt::Display for Str {{
+         fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {{
             write!(f, "{{}}", self.0)
          }}
       }}
@@ -243,7 +243,7 @@ fn write_structs(r: &mut impl Write, names: &mut StructNames, item: &Item) -> an
          /// Arguments: `({})
          pub struct {}{} {{
             {}
-            pub fmt_fn: fn(&mut std::fmt::Formatter, {})  -> std::fmt::Result,
+            pub fmt_fn: fn(&mut core::fmt::Formatter, {})  -> core::fmt::Result,
          }}
          "#,
          seq_args(args),
@@ -268,8 +268,8 @@ fn write_structs(r: &mut impl Write, names: &mut StructNames, item: &Item) -> an
       write!(
          r,
          r#"
-         impl{} std::fmt::Display for {}{} {{
-            fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {{
+         impl{} core::fmt::Display for {}{} {{
+            fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {{
                (self.fmt_fn)(f, {})
             }}
          }}
@@ -311,7 +311,7 @@ fn write_fmt_function(r: &mut impl Write, fn_name: &str, item: &ItemValue) -> an
       write!(
          r,
          r#"
-         pub fn {}(f: &mut std::fmt::Formatter) -> std::fmt::Result {{
+         pub fn {}(f: &mut core::fmt::Formatter) -> core::fmt::Result {{
             write!(f, "{}")
          }}"#,
          fn_name, item.fmt_str
@@ -320,7 +320,7 @@ fn write_fmt_function(r: &mut impl Write, fn_name: &str, item: &ItemValue) -> an
       write!(
          r,
          r#"
-         pub fn {}(f: &mut std::fmt::Formatter, {}) -> std::fmt::Result {{
+         pub fn {}(f: &mut core::fmt::Formatter, {}) -> core::fmt::Result {{
             write!(f, "{}", {})
          }}"#,
          fn_name,
