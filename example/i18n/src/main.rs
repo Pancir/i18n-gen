@@ -107,6 +107,11 @@ mod tests {
 
       assert_eq!("hello world!", tr::en_en::hello().str());
       assert_eq!("привет мир!", tr::ru_ru::hello().str());
+
+      assert!(tr::local::set("en-EN"));
+      assert_eq!("hello world!", tr::hello().str());
+      assert_eq!("hello Test!", tr::greet("Test").to_string());
+      assert_eq!("number 42!", tr::count(42).to_string());
    }
 }
 

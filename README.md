@@ -135,6 +135,9 @@ fn main() {
     
     // Direct access to a local's functions.
     println!("{}", tr::en_en::count(42));
+    
+    // The current local can be set by its key which is set in the `.yml` file.
+    tr::local::set("en-EN");
 }
 
 ```

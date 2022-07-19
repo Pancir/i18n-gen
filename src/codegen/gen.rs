@@ -604,6 +604,35 @@ fn write_local(
       )?;
    }
    //------------------------
+   write!(
+      r,
+      r#"
+
+         /// Set the current local using key, for exmaple: `en-EN`
+         ///
+         /// # Return
+         ///   False if local for the specified key does not exist.
+         pub fn set(key: &str) -> bool {{
+            match key {{"#,
+   )?;
+   for l in locals {
+      let moc_name = create_mod_name(&l.root.key);
+      write!(
+         r,
+         r#"
+               "{}" => {{set_{}(); true}}"#,
+         l.root.key, moc_name
+      )?;
+   }
+   write!(
+      r,
+      r#"
+               _ => false,
+            }}
+         }}
+      "#,
+   )?;
+   //------------------------
    writeln!(r, "\n}}")?;
    Ok(())
 }
