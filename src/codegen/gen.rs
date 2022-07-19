@@ -645,7 +645,7 @@ fn write_local(
          pub const NUMBER: usize = {};
 
          /// Get list of available local keys.
-         pub fn list() -> &'static[&'static str] {{
+         pub const fn list() -> &'static[&'static str] {{
             const LIST: [&str; NUMBER] = ["#,
       locals.len()
    )?;
