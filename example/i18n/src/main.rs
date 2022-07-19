@@ -36,7 +36,6 @@ fn main() {
    println!("  {}", tr::hello());
    println!("  {}", tr::greet("Man"));
    println!("  {}", tr::count(42));
-   println!();
 
    println!("Ggroup depth 1");
    println!("  {}", tr::group::hello());
@@ -45,7 +44,6 @@ fn main() {
 
    println!("Ggroup depth 2");
    println!("  {}", tr::group::group_lvl2::hello());
-   println!();
 
    tr::local::set_ru_ru();
    println!("===============================");
@@ -53,7 +51,6 @@ fn main() {
    println!("  {}", tr::hello());
    println!("  {}", tr::greet("Man"));
    println!("  {}", tr::count(42));
-   println!();
 
    println!("Ggroup depth 1");
    println!("  {}", tr::group::hello());
@@ -62,7 +59,6 @@ fn main() {
 
    println!("Ggroup depth 2");
    println!("  {}", tr::group::group_lvl2::hello());
-   println!();
 
    println!("===============================");
    println!("Direct acces to en_en");
@@ -112,6 +108,10 @@ mod tests {
       assert_eq!("hello world!", tr::hello().str());
       assert_eq!("hello Test!", tr::greet("Test").to_string());
       assert_eq!("number 42!", tr::count(42).to_string());
+
+      let list = tr::local::list();
+      assert_eq!("en-EN", list[0]);
+      assert_eq!("ru-RU", list[1]);
    }
 }
 

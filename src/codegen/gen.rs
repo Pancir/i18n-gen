@@ -604,6 +604,7 @@ fn write_local(
       )?;
    }
    //------------------------
+   // Set local by its key (code)
    write!(
       r,
       r#"
@@ -629,6 +630,33 @@ fn write_local(
       r#"
                _ => false,
             }}
+         }}
+      "#,
+   )?;
+   //------------------------
+   // Gel list of local keys (codes)
+   write!(
+      r,
+      r#"
+
+         /// Get list of available local keys.
+         pub fn list() -> &'static[&'static str] {{
+            const LIST: [&'static str; {}] = ["#,
+      locals.len()
+   )?;
+   for l in locals {
+      write!(
+         r,
+         r#"
+               "{}","#,
+         l.root.key
+      )?;
+   }
+   write!(
+      r,
+      r#"
+            ];
+            &LIST
          }}
       "#,
    )?;

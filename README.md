@@ -138,6 +138,10 @@ fn main() {
     
     // The current local can be set by its key which is set in the `.yml` file.
     tr::local::set("en-EN");
+    
+    // Ability to get list of existing keys
+    let list = tr::local::list();
+    assert_eq!("en-EN", list[0]);
 }
 
 ```
