@@ -2,6 +2,6 @@ ru2:
   hello: привет мир!
   greet: привет ${name:&str}!
   count: число ${value:u32}!
-  group:
+  group_1:
     hello: привет мир из группы!
     count: число ${val1:u32} - ${val2:u32} из группы!

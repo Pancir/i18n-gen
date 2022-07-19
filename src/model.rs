@@ -236,7 +236,7 @@ mod tests {
       assert_eq!("hello {}!", local.root.values.get("greet").unwrap().fmt_str);
       assert_eq!("number {}!", local.root.values.get("count").unwrap().fmt_str);
 
-      let group = local.root.groups.get("group").unwrap();
+      let group = local.root.groups.get("group_1").unwrap();
       assert_eq!("hello world from group!", group.values.get("hello").unwrap().fmt_str);
       assert_eq!("hello {} from group!", group.values.get("greet").unwrap().fmt_str);
       assert_eq!("number {} - {} from group!", group.values.get("count").unwrap().fmt_str);

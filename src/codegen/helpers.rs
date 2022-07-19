@@ -113,23 +113,32 @@ pub fn seq_arg_types<'a>(args: &'a [ItemArg]) -> impl std::fmt::Display + 'a {
 }
 
 /// Writes something like: `val1: u32, val2: u32, val3: &str ...`
-pub fn seq_args<'a>(args: &'a [ItemArg]) -> impl std::fmt::Display + 'a {
+pub fn seq_args<'a>(life_time_name: &'a str, args: &'a [ItemArg]) -> impl std::fmt::Display + 'a {
    struct Out<'a> {
+      life_time_name: &'a str,
       args: &'a [ItemArg],
    }
    impl<'a> std::fmt::Display for Out<'a> {
       fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
          for (i, a) in self.args.iter().enumerate() {
             if i > 0 {
-               write!(f, ", {}: {}", a.name, a.typ)?;
+               if a.has_ref() {
+                  write!(f, ", {}: &{} {}", a.name, self.life_time_name, &a.typ[1..])?;
+               } else {
+                  write!(f, ", {}: {}", a.name, a.typ)?;
+               }
             } else {
-               write!(f, "{}: {}", a.name, a.typ)?;
+               if a.has_ref() {
+                  write!(f, "{}: &{} {}", a.name, self.life_time_name, &a.typ[1..])?;
+               } else {
+                  write!(f, "{}: {}", a.name, a.typ)?;
+               }
             }
          }
          Ok(())
       }
    }
-   Out::<'a> { args }
+   Out::<'a> { life_time_name, args }
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

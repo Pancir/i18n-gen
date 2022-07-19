@@ -5,16 +5,16 @@
 - It does not have a stable interface so, any new version may break backward compatibility.
 - Also, it is not presented in the [crates.io](https://crates.io/) at this moment.
 - As it is a prototype it does not have a good internal architecture yet.
-- It supports text translation only. I.e. it does not support formatting for dates, currency, values etc...
-- It does not support runtime loading translation files.
+- It supports text translation only. I.e. it does not support formatting for dates, currency, values etc...  
+But it supports argument types which allows you to have workarounds.
+- It does not support runtime loading files with translation.
 
 
 ## Features
-- Generating code for including into your binary. Actually it generates rust module (code).
+- Generating code for including into your binary. Actually it generates rust module code.
 - `.yml` files for storing translations.
-- It is a dependency for compile(build) time only. Your code needs to `use` only generated file which uses only standard library.   
-(Can be changed in the future)
-- Allocation free. Generated functions return structures which implement `std::fmt::Display` instead of `String` so, you are responsible what to do in the next step. No new `String` creation - no a new heap allocation.
+- It is a dependency for compile(build) time only. Your code needs to `use` only generated file which uses only Rust standard and core libraries. (Can be changed in the future)
+- Allocation free. Generated functions return structures which implement `std::fmt::Display` instead of `String` so, you are responsible what to do in the next step.
 - Translation text variables support types. (see examples)
 - Any types including custom ones which implement `std::fmt::Display` can be used as a text variable.
 - Text without variables can be extracted as `&'static str`
@@ -111,37 +111,44 @@ mod tr;
 
 fn main() {
     // The first you have to set your current local.
-    tr::local::set_en_en();
+    tr::GLOBAL.set_en_en();
     
     // After run building you will be able to use generated code.
-    println!("{}", tr::hello());
-    println!("{}", tr::greet("Man"));
-    println!("{}", tr::count(42));
+    println!("{}", tr::GLOBAL.hello());
+    println!("{}", tr::GLOBAL.greet("Man"));
+    println!("{}", tr::GLOBAL.count(42));
     println!();
 
-    println!("}", tr::group::hello());
-    println!("}", tr::group::greet("Man"));
-    println!("}", tr::group::count(42, 52));
+    println!("}", tr::GLOBAL.group.hello());
+    println!("}", tr::GLOBAL.group.greet("Man"));
+    println!("}", tr::GLOBAL.group.count(42, 52));
     
     // Those functions return structs which implement std::fmt::Display
     // and have some additional useful implementation.
     
     // str() function is available for text without variables and returns &'static str.
-    println!("{}", tr::group::hello().str());
+    println!("{}", tr::GLOBAL.group.hello().str());
     
     // cow() function is available for returning either 
     // &'static str or String using the std::borrow::Cow.
-    println!("{}", tr::count(42).cow().as_ref());
+    println!("{}", tr::GLOBAL.count(42).cow().as_ref());
     
     // Direct access to a local's functions.
     println!("{}", tr::en_en::count(42));
     
     // The current local can be set by its key which is set in the `.yml` file.
-    tr::local::set("en-EN");
+    tr::GLOBAL.set("en-EN");
     
     // Ability to get list of existing keys
-    let list = tr::local::list();
+    let list = tr::list();
     assert_eq!("en-EN", list[0]);
+        
+    /// Local instance can be used as well.    
+    let local = tr::local::Local::new_en_en();
+    
+    /// Or even a part of local can be used. 
+    /// It uses local from the group named "group"
+    let local_part = tr::local::group::Local::new_en_en();
 }
 
 ```
