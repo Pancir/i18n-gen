@@ -143,7 +143,7 @@ fn main() {
     println!("{}", tr::en_en::count(42));
     
     // The current local can be set by its key which is set in the `.yml` file.
-    tr::GLOBAL.set("en-EN");
+    tr::GLOBAL.set("en-EN").unwrap();
     
     // Ability to get list of existing keys
     let list = tr::list();

@@ -158,7 +158,7 @@ mod tests {
          tr::ru_ru::group::group_lvl2::formatting(12.34123456).cow().as_ref()
       );
 
-      assert!(tr.set("en-EN"));
+      assert!(tr.set("en-EN").is_ok());
       assert_eq!("hello world!", tr.hello().str());
       assert_eq!("hello Test!", tr.greet("Test").to_string());
       assert_eq!("number 42!", tr.count(42).to_string());

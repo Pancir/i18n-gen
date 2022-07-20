@@ -549,8 +549,8 @@ fn write_local_hierarchy(
     /// Set the current local using key, for example: `en-EN`
     ///
     /// # Return
-    ///   False if local for the specified key does not exist.
-    #[inline] pub fn set(&self, key: &str) -> bool {{
+    ///   Err if local for the specified key does not exist.
+    #[inline] pub fn set(&self, key: &str) -> core::result::Result<(), &'static str> {{
        match key {{"#,
    )?;
    for l in locals {
@@ -558,14 +558,14 @@ fn write_local_hierarchy(
       write!(
          r,
          r#"
-         "{}" => {{self.set_{moc_name}(); true}},"#,
+         "{}" => {{self.set_{moc_name}(); Ok(())}},"#,
          l.root.key
       )?;
    }
    write!(
       r,
       r#"
-         _ => false,
+         _ => Err("Specified local does not exist!"),
       }}
     }}"#,
    )?;
