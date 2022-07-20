@@ -8,3 +8,5 @@ ru-RU:
     count: число ${val1:u32} и ${val2:u32} из группы!
     group_lvl2:
       hello: привет мир из группы 2!
+      # Custom type example
+      dt: дата-время ${val:&DateFormatter}!

@@ -37,7 +37,7 @@ use std::path::Path;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-pub fn generate_code(locals: &[Local], mod_dir: &Path, config: Config) -> anyhow::Result<()> {
+pub fn generate_code(locals: &[Local], mod_dir: &Path, config: Config<'_>) -> anyhow::Result<()> {
    fn write_sep(r: &mut impl Write) -> anyhow::Result<()> {
       writeln!(
          r,
@@ -57,11 +57,19 @@ pub fn generate_code(locals: &[Local], mod_dir: &Path, config: Config) -> anyhow
       writeln!(f, "#![allow(dead_code)]")?;
    }
    writeln!(f, "#![allow(non_upper_case_globals)]")?;
+   for i in config.imports {
+      writeln!(f, "use {};", i)?;
+   }
+
    write_sep(&mut f)?;
 
    //-------------------------
 
-   write!(f, "pub mod defines {{")?;
+   writeln!(f, "pub mod defines {{")?;
+   if !config.imports.is_empty() {
+      writeln!(f, "   use super::*;")?;
+   }
+
    write_pre_defined_traits(&mut f)?;
    write_pre_defined_structs(&mut f)?;
    for l in locals {
@@ -100,8 +108,11 @@ pub fn generate_code(locals: &[Local], mod_dir: &Path, config: Config) -> anyhow
 
    write_sep(&mut f)?;
    writeln!(f, "mod fmt {{")?;
+   if !config.imports.is_empty() {
+      writeln!(f, "   use super::*;")?;
+   }
    for l in locals {
-      write_fmt_groups(&mut f, &create_mod_name(&l.root.key), &l.root)?;
+      write_fmt_groups(&mut f, &config, &create_mod_name(&l.root.key), &l.root)?;
    }
    writeln!(f, "}}")?;
 
@@ -125,7 +136,7 @@ fn write_pre_defined_atomic_fn(r: &mut impl Write) -> anyhow::Result<()> {
       ///
       /// This is used to safe switching the current local functions.
       ///
-      /// TODO Rewtite it as soon as Rust has an Atomic that supports function pointers.
+      /// TODO Re-write it as soon as Rust has an Atomic that supports function pointers.
       /// https://github.com/rust-lang/rfcs/issues/2481
       pub struct AtomicFn<T> {{
          v: core::cell::UnsafeCell<T>,
@@ -297,15 +308,23 @@ fn write_structs(r: &mut impl Write, names: &mut StructNames, item: &Item) -> an
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /// Write format functions for group tree.
-fn write_fmt_groups(r: &mut impl Write, mod_name: &str, item: &Item) -> anyhow::Result<()> {
-   write!(r, "\npub mod {} {{", mod_name)?;
+fn write_fmt_groups(
+   r: &mut impl Write,
+   config: &Config<'_>,
+   mod_name: &str,
+   item: &Item,
+) -> anyhow::Result<()> {
+   writeln!(r, "\npub mod {} {{", mod_name)?;
+   if !config.imports.is_empty() {
+      writeln!(r, "   use super::*;")?;
+   }
 
    for v in &item.values {
       write_fmt_function(r, &create_fn_name(&v.0), &v.1)?;
    }
 
    for item in &item.groups {
-      write_fmt_groups(r, &create_mod_name(&item.0), &item.1)?;
+      write_fmt_groups(r, config, &create_mod_name(&item.0), &item.1)?;
    }
 
    writeln!(r, "}}")?;

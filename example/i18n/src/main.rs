@@ -25,7 +25,28 @@
 **  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+use chrono::Utc;
+
 mod tr;
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/// Custom struct example
+pub struct DateFormatter {
+   pub dt: chrono::DateTime<chrono::Utc>,
+}
+
+impl DateFormatter {
+   pub fn now() -> Self {
+      Self { dt: Utc::now() }
+   }
+}
+
+impl core::fmt::Display for DateFormatter {
+   fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+      write!(f, "{}", self.dt.format("%F (%T)"))
+   }
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -69,6 +90,11 @@ fn main() {
    println!("===============================");
    println!("Direct acces to ru_ru");
    println!("  {}", tr::ru_ru::count(42));
+
+   println!("===============================");
+   println!("Custom date time");
+   println!("  {}", tr::en_en::group::group_lvl2::dt(&DateFormatter::now()));
+   println!("  {}", tr::ru_ru::group::group_lvl2::dt(&DateFormatter::now()));
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -107,6 +133,16 @@ mod tests {
 
       assert_eq!("hello world!", tr::en_en::hello().str());
       assert_eq!("привет мир!", tr::ru_ru::hello().str());
+
+      let dt = DateFormatter::now();
+      assert_eq!(
+         format!("date-time {}!", dt),
+         tr::en_en::group::group_lvl2::dt(&dt).cow().as_ref()
+      );
+      assert_eq!(
+         format!("дата-время {}!", dt),
+         tr::ru_ru::group::group_lvl2::dt(&dt).cow().as_ref()
+      );
 
       assert!(tr.set("en-EN"));
       assert_eq!("hello world!", tr.hello().str());

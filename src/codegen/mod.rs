@@ -37,7 +37,7 @@ pub(crate) mod helpers;
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /// Generator configuration.
-pub struct Config {
+pub struct Config<'a> {
    /// File name without extension for default local.
    ///
    /// It is also a main scheme template.
@@ -53,11 +53,18 @@ pub struct Config {
    ///
    /// Default: true
    pub dead_code_attr: bool,
+
+   /// List of imports.
+   ///
+   /// Your custom types must be imported with `use` before they are used.
+   /// Example: Some(&\["crate::DateFormatter"\]) This will be printed as
+   /// `use crate::DateFormatter;` at the top of generated file.
+   pub imports: &'a [&'a str],
 }
 
-impl Default for Config {
+impl<'a> Default for Config<'a> {
    fn default() -> Self {
-      Self { default_local_file: "en-EN", dead_code_attr: true }
+      Self { default_local_file: "en-EN", dead_code_attr: true, imports: &[] }
    }
 }
 
@@ -67,7 +74,7 @@ impl Default for Config {
 ///
 /// # Notes
 /// The function walk only one dir level. I.e. not walking subdirs.
-pub fn generate(local_dir: &Path, mod_dir: &Path, config: Config) -> anyhow::Result<()> {
+pub fn generate(local_dir: &Path, mod_dir: &Path, config: Config<'_>) -> anyhow::Result<()> {
    let mut locals = Vec::<Local>::with_capacity(64);
    let mut default_local_key = String::with_capacity(64);
 
