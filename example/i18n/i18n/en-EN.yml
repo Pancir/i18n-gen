@@ -10,3 +10,5 @@ en-EN:
       hello: hello world from group 2!
       # Custom type example
       dt: date-time ${val:&DateFormatter}!
+      # Formatting
+      formatting: formatting ${val:f32:{:.2}}!

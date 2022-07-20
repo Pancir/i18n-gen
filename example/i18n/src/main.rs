@@ -95,6 +95,11 @@ fn main() {
    println!("Custom date time");
    println!("  {}", tr::en_en::group::group_lvl2::dt(&DateFormatter::now()));
    println!("  {}", tr::ru_ru::group::group_lvl2::dt(&DateFormatter::now()));
+
+   println!("===============================");
+   println!("Formatting");
+   println!("  {}", tr::en_en::group::group_lvl2::formatting(123.34123456));
+   println!("  {}", tr::ru_ru::group::group_lvl2::formatting(123.34123456));
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -142,6 +147,15 @@ mod tests {
       assert_eq!(
          format!("дата-время {}!", dt),
          tr::ru_ru::group::group_lvl2::dt(&dt).cow().as_ref()
+      );
+
+      assert_eq!(
+         "formatting 12.34!",
+         tr::en_en::group::group_lvl2::formatting(12.34123456).cow().as_ref()
+      );
+      assert_eq!(
+         "форматирование 12.34!",
+         tr::ru_ru::group::group_lvl2::formatting(12.34123456).cow().as_ref()
       );
 
       assert!(tr.set("en-EN"));

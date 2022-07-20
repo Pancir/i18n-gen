@@ -52,58 +52,89 @@ pub struct ItemValue {
 
 impl ItemValue {
    pub fn parse(s: &str) -> anyhow::Result<Self> {
+      const VAR_START_CHAR: char = '$';
+
       let mut fmt = String::default();
       let mut args = Vec::default();
       let mut arg_buff = String::default();
 
+      let mut depth = 0_isize;
+      let mut last_char = char::default();
       let mut is_var = false;
+
       for ch in s.chars() {
-         if ch == '$' {
+         if ch == '{' && last_char == VAR_START_CHAR {
             arg_buff.clear();
+            fmt.pop();
+            depth += 1;
+
             is_var = true;
+            last_char = ch;
             continue;
          }
 
          if !is_var {
-            fmt.push(ch)
+            fmt.push(ch);
          } else {
             if ch == '{' {
-               fmt.push(ch);
-            } else {
-               arg_buff.push(ch);
+               depth += 1;
             }
 
             if ch == '}' {
-               fmt.push(ch);
-               arg_buff.pop();
-               is_var = false;
-
-               let mut typ = String::default();
-               let mut name = String::default();
-
-               let mut is_type = false;
-               for ch in arg_buff.chars() {
-                  if ch == ':' {
-                     is_type = true;
-                     continue;
-                  }
-
-                  if is_type {
-                     typ.push(ch);
+               depth -= 1;
+               if depth == 0 {
+                  let (item, format) = ItemValue::parse_arg(&arg_buff)?;
+                  args.push(item);
+                  if format.is_empty() {
+                     fmt.push_str("{}");
                   } else {
-                     name.push(ch);
+                     fmt.push_str(&format);
                   }
+
+                  is_var = false;
+                  last_char = ch;
+                  continue;
                }
-               let mut item_arg = ItemArg { typ, name };
-               if item_arg.typ.is_empty() {
-                  item_arg.typ.push_str("&str");
-               }
-               args.push(item_arg)
             }
+
+            arg_buff.push(ch);
          }
+
+         last_char = ch;
       }
 
       Ok(Self { fmt_str: fmt, args })
+   }
+
+   fn parse_arg(s: &str) -> anyhow::Result<(ItemArg, String)> {
+      let mut item = ItemArg::default();
+      let mut fmt = String::default();
+      let mut split_it = s.split(':');
+      let mut len = 0_usize;
+      //-----------------------------
+      // name
+      if let Some(v) = split_it.next() {
+         len += v.len();
+         item.name.push_str(v);
+      } else {
+         return Ok((item, fmt));
+      }
+      //-----------------------------
+      // type
+      if let Some(v) = split_it.next() {
+         len += v.len();
+         item.typ.push_str(v);
+      } else {
+         item.typ.push_str("&str");
+         return Ok((item, fmt));
+      }
+      //-----------------------------
+      // format (the rest of string)
+      if (s.len() - len) > 2 {
+         fmt.push_str(&s[len + 2..]);
+      }
+
+      Ok((item, fmt))
    }
 
    pub fn has_ref(&self) -> bool {
@@ -214,15 +245,33 @@ mod tests {
       let v = ItemValue::parse("hello world!").unwrap();
       assert_eq!("hello world!", v.fmt_str);
       assert!(v.args.is_empty());
-
+      //---------------------------
+      let v = ItemValue::parse("hello world $,$$ !").unwrap();
+      assert_eq!("hello world $,$$ !", v.fmt_str);
+      assert!(v.args.is_empty());
+      //---------------------------
+      let v = ItemValue::parse("hello {test} !").unwrap();
+      assert_eq!("hello {test} !", v.fmt_str);
+      assert!(v.args.is_empty());
+      //---------------------------
+      let v = ItemValue::parse("hello ${name} !").unwrap();
+      assert_eq!("hello {} !", v.fmt_str);
+      assert_eq!(ItemArg { typ: "&str".to_string(), name: "name".to_string() }, v.args[0]);
+      //---------------------------
       let v = ItemValue::parse("hello ${name:&str}!").unwrap();
       assert_eq!("hello {}!", v.fmt_str);
       assert_eq!(ItemArg { typ: "&str".to_string(), name: "name".to_string() }, v.args[0]);
-
+      //---------------------------
       let v = ItemValue::parse("number ${val1:u32} - ${val2:u32}!").unwrap();
       assert_eq!("number {} - {}!", v.fmt_str);
       assert_eq!(ItemArg { typ: "u32".to_string(), name: "val1".to_string() }, v.args[0]);
       assert_eq!(ItemArg { typ: "u32".to_string(), name: "val2".to_string() }, v.args[1]);
+      //---------------------------
+      let v = ItemValue::parse("number ${val1:f32:{2:.2}} / ${val2:f32:{:.3}} / ${val3:f32:{:?}}!")
+         .unwrap();
+      assert_eq!("number {2:.2} / {:.3} / {:?}!", v.fmt_str);
+      assert_eq!(ItemArg { typ: "f32".to_string(), name: "val1".to_string() }, v.args[0]);
+      assert_eq!(ItemArg { typ: "f32".to_string(), name: "val2".to_string() }, v.args[1]);
    }
 
    #[test]
@@ -231,11 +280,11 @@ mod tests {
       let file = test_assets_dir(Some("en-EN.yml"));
       let local = Local::load(&file).unwrap();
       assert_eq!("en-EN", local.root.key);
-
+      //---------------------------
       assert_eq!("hello world!", local.root.values.get("hello").unwrap().fmt_str);
       assert_eq!("hello {}!", local.root.values.get("greet").unwrap().fmt_str);
       assert_eq!("number {}!", local.root.values.get("count").unwrap().fmt_str);
-
+      //---------------------------
       let group = local.root.groups.get("group_1").unwrap();
       assert_eq!("hello world from group!", group.values.get("hello").unwrap().fmt_str);
       assert_eq!("hello {} from group!", group.values.get("greet").unwrap().fmt_str);
@@ -252,7 +301,7 @@ mod tests {
       assert_eq!("ru1", local2.root.key);
       assert_eq!("ru2", local3.root.key);
       local1.check_matching(&local2).unwrap();
-
+      //---------------------------
       assert!(local1.check_matching(&local3).is_err())
    }
 }

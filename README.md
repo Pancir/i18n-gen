@@ -6,17 +6,17 @@
 - Also, it is not presented in the [crates.io](https://crates.io/) at this moment.
 - As it is a prototype it does not have a good internal architecture yet.
 - It supports text translation only. I.e. it does not support formatting for dates, currency, values etc...  
-But it supports argument types which allows you to have workarounds.
+But it supports custom argument types which can help you to make workarounds. (See examples)
 - It does not support runtime loading files with translation.
 
 
 ## Features
 - Generating code for including into your binary. Actually it generates rust module code.
 - `.yml` files for storing translations.
-- It is a dependency for compile(build) time only. Your code needs to `use` only generated file which uses only Rust standard and core libraries. (Can be changed in the future)
-- Allocation free. Generated functions return structures which implement `std::fmt::Display` instead of `String` so, you are responsible what to do in the next step.
-- Translation text variables support types. (see examples)
-- Any types including custom ones which implement `std::fmt::Display` can be used as a text variable.
+- It is a dependency for compile(build) time only. Your code needs to `use` only generated file which uses only the Rust standard and core libraries. (Can be changed in the future)
+- Allocation free. Generated functions return structures which implement `core::fmt::Display` instead of `String` so, you are responsible what to do in the next step.
+- Translation text variables support types and [formatting](https://doc.rust-lang.org/std/fmt/index.html) argument for it. (See examples)
+- Any types including custom ones which implement `core::fmt::Display` can be used as a text variable.
 - Text without variables can be extracted as `&'static str`
 - Supports extraction to `std::borrow::Cow` as well.
 - No macros (is it good?).
@@ -34,13 +34,13 @@ i18n = {git = "ssh://git@github.com/Pancir/i18n-gen", version="0.1", package="i1
 or with a specific commit instead of version
 ```toml
 [build-dependencies]
-i18n = {git = "ssh://git@github.com/Pancir/i18n-gen", rev="c098531", package="i18n-gen"}
+i18n = {git = "ssh://git@github.com/Pancir/i18n-gen", rev="98c5db4", package="i18n-gen"}
 ```
 If you have problem in previous step you probably need to read about the git and the rust cargo settings.
 
 - Create a directory where you will store your translations.
 This directory must contain file `en-EN.yml` which is considered by the generator as a main template file.  
-(You may change default file name via `Config` struct)  
+(You may change default file name via [Config] struct)  
 File content example:
 ```yml
 en-EN:
@@ -50,7 +50,7 @@ en-EN:
   group:
     hello: hello world from group!
     greet: hello ${name} from group!
-    count: number ${val1:u32} and ${val2:u32} from group!
+    count: number ${val1:u32} and ${val2:f32:{:.2}} from group!
 ```
 The first line is local code.  
 Keys with values are used to generate corresponding functions.  
@@ -59,14 +59,20 @@ Keys without values (like `group` in the example) are considered as groups.
 Text variables will be translated into functions arguments.  
 Syntax of variables:
   - Variables must be quoted with `${}`
-  - `${some_text}` variables without a type. The type `&str` will be assigned automatically so,
+  - `${some_text}` Variables without a type. The `&str` type will be assigned automatically so,
     `${some_text}` and `${some_text:&str}` are the same.
-  - `${val:u32}`  uses the `u32` type.  
-  - `${val:&u32}` reference is ok as well.  
+  - `${val:u32}`  Uses the `u32` type.  
+  - `${val:&u32}` A reference is ok as well.
+  - `${val:&MyType}` A reference to a custom type. You have to add an import for the `MyType` into the [Config].
+  - `${val:f32:{:.2}}` A Variable with a special formation. [Rust std fmt](https://doc.rust-lang.org/std/fmt/index.html) syntax is used. Not all constructions are supported due the usage context.
 
-For example: the `count: number ${val1:u32} and ${val2:u32} from group!` will be translated into
+For example:   
+the `.yml` line `count: number ${val1:f32} and ${val2:f32:{:.2}} !` will be translated into
 ```text
-    tr::group::number(val1: u32, val2: u32) -> some generated return;
+tr::count(val1: f32, val2: f32) -> some generated return;
+
+// internally it will be like
+write!(f, "number {} and {:.2} !", val1, val2)
 ```
 
 - Project structure example:
@@ -82,7 +88,7 @@ For example: the `count: number ${val1:u32} and ${val2:u32} from group!` will be
     ├── tr.rs // will be generated
     └── main.rs
 ```
-Actually input/output directories can be chosen.
+Input/output directories can be chosen.
 
 
 - In your crate you have to create `build.rs` file with the following code:
@@ -123,7 +129,7 @@ fn main() {
     println!("}", tr::GLOBAL.group.greet("Man"));
     println!("}", tr::GLOBAL.group.count(42, 52));
     
-    // Those functions return structs which implement std::fmt::Display
+    // Those functions return structs which implement core::fmt::Display
     // and have some additional useful implementation.
     
     // str() function is available for text without variables and returns &'static str.
@@ -143,10 +149,10 @@ fn main() {
     let list = tr::list();
     assert_eq!("en-EN", list[0]);
         
-    /// Local instance can be used as well.    
+    /// Local's instance can be used as well.    
     let local = tr::local::Local::new_en_en();
     
-    /// Or even a part of local can be used. 
+    /// Or even a part of a local can be used. 
     /// It uses local from the group named "group"
     let local_part = tr::local::group::Local::new_en_en();
 }

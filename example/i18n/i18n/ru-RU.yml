@@ -10,3 +10,5 @@ ru-RU:
       hello: привет мир из группы 2!
       # Custom type example
       dt: дата-время ${val:&DateFormatter}!
+      # Formatting
+      formatting: форматирование ${val:f32:{:.2}}!
