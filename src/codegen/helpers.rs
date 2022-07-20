@@ -62,11 +62,11 @@ impl StructNames {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 pub fn create_mod_name(s: &str) -> String {
-   s.replace(" ", "_").replace("-", "_").to_lowercase()
+   s.replace(' ', "_").replace('-', "_").to_lowercase()
 }
 
 pub fn create_fn_name(s: &str) -> String {
-   s.replace(" ", "_").replace("-", "_").to_lowercase()
+   s.replace(' ', "_").replace('-', "_").to_lowercase()
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -127,12 +127,10 @@ pub fn seq_args<'a>(life_time_name: &'a str, args: &'a [ItemArg]) -> impl std::f
                } else {
                   write!(f, ", {}: {}", a.name, a.typ)?;
                }
+            } else if a.has_ref() {
+               write!(f, "{}: &{} {}", a.name, self.life_time_name, &a.typ[1..])?;
             } else {
-               if a.has_ref() {
-                  write!(f, "{}: &{} {}", a.name, self.life_time_name, &a.typ[1..])?;
-               } else {
-                  write!(f, "{}: {}", a.name, a.typ)?;
-               }
+               write!(f, "{}: {}", a.name, a.typ)?;
             }
          }
          Ok(())

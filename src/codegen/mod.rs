@@ -125,7 +125,7 @@ pub fn generate(local_dir: &Path, mod_dir: &Path, config: Config<'_>) -> anyhow:
 
    let default = locals.first().unwrap();
    for l in &locals[1..] {
-      default.check_matching(&l)?;
+      default.check_matching(l)?;
    }
 
    gen::generate_code(&locals, mod_dir, config)

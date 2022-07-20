@@ -40,7 +40,7 @@ pub struct ItemArg {
 
 impl ItemArg {
    pub fn has_ref(&self) -> bool {
-      self.typ.starts_with("&")
+      self.typ.starts_with('&')
    }
 }
 
@@ -112,7 +112,7 @@ impl ItemValue {
             return true;
          }
       }
-      return false;
+      false
    }
 }
 
@@ -147,7 +147,7 @@ impl Local {
 
       if values.1.is_object() {
          for (k, v) in values.1.as_object().unwrap() {
-            Local::fill_item(k, &v, &mut root)?;
+            Local::fill_item(k, v, &mut root)?;
          }
       } else {
          bail!("Unexpected first level value type: {:?}", values.1);
@@ -162,12 +162,12 @@ impl Local {
             item.values.insert(key.to_string(), ItemValue::parse(s)?);
          }
          serde_json::Value::Object(obj) => {
-            let mut child = item
+            let child = item
                .groups
                .entry(key.to_string())
                .or_insert_with(|| Item { key: key.to_string(), ..Item::default() });
             for (k, v) in obj {
-               Local::fill_item(k, &v, &mut child)?;
+               Local::fill_item(k, v, child)?;
             }
          }
          _ => bail!("Unexpected type: {:?}", val),

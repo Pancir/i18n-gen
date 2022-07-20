@@ -314,11 +314,11 @@ fn write_fmt_groups(
    }
 
    for v in &item.values {
-      write_fmt_function(r, &create_fn_name(&v.0), &v.1)?;
+      write_fmt_function(r, &create_fn_name(v.0), v.1)?;
    }
 
    for item in &item.groups {
-      write_fmt_groups(r, config, &create_mod_name(&item.0), &item.1)?;
+      write_fmt_groups(r, config, &create_mod_name(item.0), item.1)?;
    }
 
    writeln!(r, "}}")?;
@@ -364,12 +364,12 @@ fn write_local_groups(
    writeln!(r, "     use super::*;")?;
 
    for v in &item.values {
-      write_local_function(r, tree_path, names, &create_fn_name(&v.0), &v.1)?;
+      write_local_function(r, tree_path, names, &create_fn_name(v.0), v.1)?;
    }
 
    for item in &item.groups {
-      tree_path.push(create_mod_name(&item.0));
-      write_local_groups(r, tree_path, names, &item.1)?;
+      tree_path.push(create_mod_name(item.0));
+      write_local_groups(r, tree_path, names, item.1)?;
       tree_path.pop();
    }
 
@@ -379,7 +379,7 @@ fn write_local_groups(
 
 fn write_local_function(
    r: &mut impl Write,
-   tree_path: &mut Vec<String>,
+   tree_path: &mut [String],
    names: &mut StructNames,
    fn_name: &str,
    item: &ItemValue,
@@ -455,14 +455,14 @@ fn write_local_hierarchy(
    tree_path.push(mod_name);
    //-------------------------
    for g in &item.groups {
-      write_local_hierarchy(r, tree_path, names, &g.1, locals)?;
+      write_local_hierarchy(r, tree_path, names, g.1, locals)?;
    }
    //////////////////////////////////////////////////////
    writeln!(r, "   #[derive(Clone)]")?;
    writeln!(r, "   pub struct Local {{")?;
 
    for g in &item.groups {
-      let group_name = create_mod_name(&g.0);
+      let group_name = create_mod_name(g.0);
       writeln!(r, "    pub {group_name}: {group_name}::Local,")?;
    }
 
@@ -504,7 +504,7 @@ fn write_local_hierarchy(
       writeln!(r, "     Self {{")?;
 
       for g in &item.groups {
-         let group_name = create_mod_name(&g.0);
+         let group_name = create_mod_name(g.0);
          writeln!(r, "      {group_name}: {group_name}::Local::new_{local_mod_name}(),")?;
       }
 
@@ -527,7 +527,7 @@ fn write_local_hierarchy(
       writeln!(r, "    #[inline] pub fn set_{local_mod_name}(&self) {{")?;
 
       for g in &item.groups {
-         let group_name = create_mod_name(&g.0);
+         let group_name = create_mod_name(g.0);
          writeln!(r, "      self.{group_name}.set_{local_mod_name}();")?;
       }
 
