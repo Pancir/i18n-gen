@@ -51,7 +51,7 @@ impl core::fmt::Display for DateFormatter {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 fn main() {
-   let tr = &tr::GLOBAL;
+   use tr::GLOBAL as tr;
 
    tr.set_en_en();
    println!("===============================");
@@ -68,7 +68,7 @@ fn main() {
    println!("Ggroup depth 2");
    println!("  {}", tr.group.group_lvl2.hello());
 
-   tr::GLOBAL.set_ru_ru();
+   tr.set_ru_ru();
    println!("===============================");
    println!("No group");
    println!("  {}", tr.hello());
