@@ -57,8 +57,8 @@ pub fn generate_code(locals: &[Local], mod_dir: &Path, config: Config<'_>) -> an
       writeln!(f, "#![allow(dead_code)]")?;
    }
    writeln!(f, "#![allow(non_upper_case_globals)]")?;
-   for i in config.imports {
-      writeln!(f, "use {};", i)?;
+   for imp in config.imports {
+      writeln!(f, "use {imp};")?;
    }
 
    write_sep(&mut f)?;
@@ -258,14 +258,12 @@ fn write_structs(r: &mut impl Write, names: &mut StructNames, item: &Item) -> an
          r,
          r#"
          /// Arguments: `({})
-         pub struct {}{} {{
+         pub struct {struct_name}{life_time} {{
             {}
-            pub fmt_fn: fn(&mut core::fmt::Formatter, {})  -> core::fmt::Result,
+            pub fmt_fn: fn(&mut core::fmt::Formatter, {}) -> core::fmt::Result,
          }}
          "#,
          seq_args("", args),
-         struct_name,
-         life_time,
          seq_struct_members(args),
          seq_arg_types(args),
       )?;
@@ -273,27 +271,23 @@ fn write_structs(r: &mut impl Write, names: &mut StructNames, item: &Item) -> an
       write!(
          r,
          r#"
-         impl{} CowAccess for {}{} {{
+         impl{life_time} CowAccess for {struct_name}{life_time} {{
             fn cow(&self) -> std::borrow::Cow<'static, str> {{
                std::borrow::Cow::Owned(self.to_string())
             }}
          }}
-         "#,
-         life_time, struct_name, life_time
+         "#
       )?;
       //-------------------------------------------
       write!(
          r,
          r#"
-         impl{} core::fmt::Display for {}{} {{
+         impl{life_time} core::fmt::Display for {struct_name}{life_time} {{
             fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {{
                (self.fmt_fn)(f, {})
             }}
          }}
          "#,
-         life_time,
-         struct_name,
-         life_time,
          seq_arg_names("self.", args)
       )?;
    }
@@ -314,7 +308,7 @@ fn write_fmt_groups(
    mod_name: &str,
    item: &Item,
 ) -> anyhow::Result<()> {
-   writeln!(r, "\npub mod {} {{", mod_name)?;
+   writeln!(r, "\npub mod {mod_name} {{")?;
    if !config.imports.is_empty() {
       writeln!(r, "   use super::*;")?;
    }
@@ -336,19 +330,18 @@ fn write_fmt_function(r: &mut impl Write, fn_name: &str, item: &ItemValue) -> an
       write!(
          r,
          r#"
-         pub fn {}(f: &mut core::fmt::Formatter) -> core::fmt::Result {{
+         pub fn {fn_name}(f: &mut core::fmt::Formatter) -> core::fmt::Result {{
             write!(f, "{}")
          }}"#,
-         fn_name, item.fmt_str
+         item.fmt_str
       )?;
    } else {
       write!(
          r,
          r#"
-         pub fn {}(f: &mut core::fmt::Formatter, {}) -> core::fmt::Result {{
+         pub fn {fn_name}(f: &mut core::fmt::Formatter, {}) -> core::fmt::Result {{
             write!(f, "{}", {})
          }}"#,
-         fn_name,
          seq_args("", &item.args),
          item.fmt_str,
          seq_arg_names("", &item.args),
@@ -395,11 +388,11 @@ fn write_local_function(
       write!(
          r,
          r#"
-         /// Text: `"{}"`
-         pub fn {}() -> defines::Str {{
-            defines::Str("{}")
+         /// Text: `"{0}"`
+         pub fn {fn_name}() -> defines::Str {{
+            defines::Str("{0}")
          }}"#,
-         item.fmt_str, fn_name, item.fmt_str
+         item.fmt_str,
       )?;
    } else {
       let (_, struct_name) = names.get_or_add(&item.args);
@@ -409,21 +402,16 @@ fn write_local_function(
          r,
          r#"
          /// Text: `"{}"`
-         pub fn {}({}) -> defines::{}{} {{
-            defines::{} {{
+         pub fn {fn_name}({}) -> defines::{struct_name}{life_time} {{
+            defines::{struct_name} {{
                {},
-               fmt_fn: fmt::{}{}
+               fmt_fn: fmt::{}{fn_name}
             }}
          }}"#,
          item.fmt_str,
-         fn_name,
          seq_args("", &item.args),
-         struct_name,
-         life_time,
-         struct_name,
          seq_arg_names("", &item.args),
          join_tree_path(tree_path, "::"),
-         fn_name
       )?;
    }
 
@@ -463,7 +451,7 @@ fn write_local_hierarchy(
    let mod_name = if is_root_mod { "local".to_string() } else { create_mod_name(&item.key) };
    let local_mod_name = create_mod_name(&locals.first().unwrap().root.key);
    //////////////////////////////////////////////////////
-   writeln!(r, "pub mod {} {{\n   use super::*;\n", mod_name)?;
+   writeln!(r, "pub mod {mod_name} {{\n   use super::*;\n")?;
    tree_path.push(mod_name);
    //-------------------------
    for g in &item.groups {
@@ -475,7 +463,7 @@ fn write_local_hierarchy(
 
    for g in &item.groups {
       let group_name = create_mod_name(&g.0);
-      writeln!(r, "    pub {}: {}::Local,", group_name, group_name)?;
+      writeln!(r, "    pub {group_name}: {group_name}::Local,")?;
    }
 
    for v in &item.values {
@@ -492,11 +480,9 @@ fn write_local_hierarchy(
       } else {
          writeln!(
             r,
-            "    {}: inner::AtomicFn<fn({}) -> defines::{}{}>,",
+            "    {}: inner::AtomicFn<fn({}) -> defines::{struct_name}{life_time}>,",
             v.0,
             seq_arg_types(&v.1.args),
-            struct_name,
-            life_time,
          )?;
       }
    }
@@ -505,7 +491,7 @@ fn write_local_hierarchy(
    //////////////////////////////////////////////////////
    writeln!(r, "   impl core::default::Default for Local {{")?;
    writeln!(r, "    fn default() -> Self {{")?;
-   writeln!(r, "     Self::new_{}()", local_mod_name)?;
+   writeln!(r, "     Self::new_{local_mod_name}()")?;
    writeln!(r, "    }}")?;
    writeln!(r, "   }}")?;
    //////////////////////////////////////////////////////
@@ -514,22 +500,20 @@ fn write_local_hierarchy(
    for l in locals {
       let local_mod_name = create_mod_name(&l.root.key);
 
-      writeln!(r, "    #[inline] pub const fn new_{}() -> Self {{", local_mod_name)?;
+      writeln!(r, "    #[inline] pub const fn new_{local_mod_name}() -> Self {{")?;
       writeln!(r, "     Self {{")?;
 
       for g in &item.groups {
          let group_name = create_mod_name(&g.0);
-         writeln!(r, "      {}: {}::Local::new_{}(),", group_name, group_name, local_mod_name)?;
+         writeln!(r, "      {group_name}: {group_name}::Local::new_{local_mod_name}(),")?;
       }
 
       for v in &item.values {
          writeln!(
             r,
-            "      {}: inner::AtomicFn::new({}::{}{}),",
+            "      {0}: inner::AtomicFn::new({local_mod_name}::{1}{0}),",
             v.0,
-            local_mod_name,
             join_tree_path(&tree_path[1..], "::"),
-            v.0
          )?;
       }
 
@@ -540,21 +524,19 @@ fn write_local_hierarchy(
    for l in locals {
       let local_mod_name = create_mod_name(&l.root.key);
 
-      writeln!(r, "    #[inline] pub fn set_{}(&self) {{", local_mod_name)?;
+      writeln!(r, "    #[inline] pub fn set_{local_mod_name}(&self) {{")?;
 
       for g in &item.groups {
          let group_name = create_mod_name(&g.0);
-         writeln!(r, "      self.{}.set_{}();", group_name, local_mod_name)?;
+         writeln!(r, "      self.{group_name}.set_{local_mod_name}();")?;
       }
 
       for v in &item.values {
          writeln!(
             r,
-            "      self.{}.store({}::{}{});",
+            "      self.{0}.store({local_mod_name}::{1}{0});",
             v.0,
-            local_mod_name,
             join_tree_path(&tree_path[1..], "::"),
-            v.0
          )?;
       }
 
@@ -576,8 +558,8 @@ fn write_local_hierarchy(
       write!(
          r,
          r#"
-         "{}" => {{self.set_{}(); true}},"#,
-         l.root.key, moc_name
+         "{}" => {{self.set_{moc_name}(); true}},"#,
+         l.root.key
       )?;
    }
    write!(
@@ -602,12 +584,9 @@ fn write_local_hierarchy(
       } else {
          writeln!(
             r,
-            "    #[inline] pub fn {}{}(&self, {}) -> defines::{}{} {{",
+            "    #[inline] pub fn {}{life_time_full}(&self, {}) -> defines::{struct_name}{life_time_full} {{",
             v.0,
-            life_time_full,
             seq_args(life_time, &v.1.args),
-            struct_name,
-            life_time_full,
          )?;
          writeln!(r, "     (self.{}.load())({})", v.0, seq_arg_names("", &v.1.args))?;
          writeln!(r, "    }}")?;
@@ -630,7 +609,7 @@ fn write_global_static(r: &mut impl Write, locals: &[Local]) -> anyhow::Result<(
       r#"
 
          /// Global (static) Local instance.
-         pub static GLOBAL: local::Local = local::Local::new_{}();
+         pub static GLOBAL: local::Local = local::Local::new_{local_mod_name}();
 
          /// Number of available locals.
          ///
@@ -640,7 +619,6 @@ fn write_global_static(r: &mut impl Write, locals: &[Local]) -> anyhow::Result<(
          /// Get list of available local keys.
          pub const fn list() -> &'static[&'static str] {{
             const LIST: [&str; NUMBER] = ["#,
-      local_mod_name,
       locals.len()
    )?;
    for l in locals {
