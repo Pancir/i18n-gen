@@ -98,8 +98,8 @@ fn main() {
 
    println!("===============================");
    println!("Formatting");
-   println!("  {}", tr::en_en::group::group_lvl2::formatting(123.34123456));
-   println!("  {}", tr::ru_ru::group::group_lvl2::formatting(123.34123456));
+   println!("  {}", tr::en_en::group::group_lvl2::formatting(123.3412));
+   println!("  {}", tr::ru_ru::group::group_lvl2::formatting(123.3412));
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -151,11 +151,11 @@ mod tests {
 
       assert_eq!(
          "formatting 12.34!",
-         tr::en_en::group::group_lvl2::formatting(12.34123456).cow().as_ref()
+         tr::en_en::group::group_lvl2::formatting(12.341_234).cow().as_ref()
       );
       assert_eq!(
          "форматирование 12.34!",
-         tr::ru_ru::group::group_lvl2::formatting(12.34123456).cow().as_ref()
+         tr::ru_ru::group::group_lvl2::formatting(12.341_234).cow().as_ref()
       );
 
       assert!(tr.set("en-EN").is_ok());
